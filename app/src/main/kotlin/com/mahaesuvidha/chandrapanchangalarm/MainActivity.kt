@@ -221,6 +221,14 @@ class MainActivity : ComponentActivity() {
 
                     onTestPanchang = {
                         scheduler.schedulePanchangTestSequence()
+                    },
+
+                    onTestAllVoice = {
+                        scheduler.scheduleFullVoiceTestSequence()
+                    },
+
+                    onCancelTests = {
+                        scheduler.cancelAllTestAlarms()
                     }
                 )
             }
@@ -235,7 +243,9 @@ private fun AppRoot(
     onTestRashi: () -> Unit,
     onTestNakshatra: () -> Unit,
     onTestCharan: () -> Unit,
-    onTestPanchang: () -> Unit
+    onTestPanchang: () -> Unit,
+    onTestAllVoice: () -> Unit,
+    onCancelTests: () -> Unit
 ) {
     val context = LocalContext.current
     var profile by remember { mutableStateOf(BirthProfileStore.load(context.applicationContext)?.let { p ->
@@ -1351,10 +1361,28 @@ private fun ChandraSuryaHomeContent(
         TestButton(
 
             text =
-                "📅 पंचांग Ringtone Test",
+                "📅 पंचांग Test",
 
             onClick =
                 onTestPanchang
+        )
+
+        TestButton(
+
+            text =
+                "🎙️ सर्व Voice Test (13 सूचना)",
+
+            onClick =
+                onTestAllVoice
+        )
+
+        TestButton(
+
+            text =
+                "⛔ सर्व Test Alarm बंद करा",
+
+            onClick =
+                onCancelTests
         )
 
 

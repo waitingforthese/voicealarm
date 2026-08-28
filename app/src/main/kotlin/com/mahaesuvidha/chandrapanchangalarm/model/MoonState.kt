@@ -81,7 +81,7 @@ enum class Nakshatra(
     UTTARA_ASHADHA("उत्तराषाढा", Graha.SURYA),
     SHRAVANA("श्रवण", Graha.CHANDRA),
     DHANISHTHA("धनिष्ठा", Graha.MANGAL),
-    SHATABHISHA("शततारका", Graha.RAHU),
+    SHATABHISHA("शतभिषा", Graha.RAHU),
     PURVA_BHADRAPADA("पूर्वाभाद्रपदा", Graha.GURU),
     UTTARA_BHADRAPADA("उत्तराभाद्रपदा", Graha.SHANI),
     REVATI("रेवती", Graha.BUDH)

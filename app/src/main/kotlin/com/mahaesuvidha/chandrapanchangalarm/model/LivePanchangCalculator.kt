@@ -1074,7 +1074,7 @@ private fun getMasaNameForInterval(
 
         val nextTithiIndex =
             indexAt(
-                nextTithiMillis,
+                nextTithiMillis + 2_000L,
                 BoundaryType.TITHI,
                 swe
             )
@@ -1107,7 +1107,7 @@ private fun getMasaNameForInterval(
 
         val nextYogaIndex =
             indexAt(
-                nextYogaMillis,
+                nextYogaMillis + 2_000L,
                 BoundaryType.YOGA,
                 swe
             )
@@ -1140,7 +1140,7 @@ private fun getMasaNameForInterval(
 
         val nextKaranaIndex =
             indexAt(
-                nextKaranaMillis,
+                nextKaranaMillis + 2_000L,
                 BoundaryType.KARANA,
                 swe
             )
@@ -1173,7 +1173,7 @@ private fun getMasaNameForInterval(
 
         val nextPakshaTithiIndex =
             indexAt(
-                nextPakshaMillis,
+                nextPakshaMillis + 2_000L,
                 BoundaryType.TITHI,
                 swe
             )

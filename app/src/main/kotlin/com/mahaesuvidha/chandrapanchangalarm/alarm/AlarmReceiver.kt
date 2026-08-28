@@ -39,7 +39,7 @@ class AlarmReceiver : BroadcastReceiver() {
         if (eventAt > 0L && firedPrefs.getLong(firedKey, -1L) == eventAt) return
         if (eventAt > 0L) firedPrefs.edit().putLong(firedKey, eventAt).apply()
 
-        val isGuidanceNotification = id == 2 || id == 121 || id == 122
+        val isGuidanceNotification = id == 2 || id == 121 || id == 122 || id == 213
         if (isGuidanceNotification) {
             showNakshatraGuidanceNotification(context, id)
         } else {
@@ -182,7 +182,9 @@ private object VoiceAnnouncement {
             val result = tts.setLanguage(mr)
             if (result == TextToSpeech.LANG_MISSING_DATA ||
                 result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                tts.setLanguage(Locale("hi", "IN"))
+                val hi = Locale("hi", "IN")
+                tts.setLanguage(hi)
+                selectPreferredFemaleVoice(tts, hi)
             } else {
                 // Prefer a female Marathi voice when the installed TTS engine
                 // exposes one. Android does not provide a standard gender API,
@@ -260,11 +262,11 @@ private object VoiceAnnouncement {
 
         return runCatching {
             when (id) {
-                1 -> {
+                1, 201 -> {
                     val s = LiveMoonCalculator.getCurrentMoonState()
                     "नमस्कार! चंद्र राशीमध्ये बदल झाला आहे. आता ${s.rashi.marathi} राशी सुरू झाली आहे. ${until(s.nextRashiMillis)}"
                 }
-                2, 121 -> {
+                2, 121, 202 -> {
                     val s = LiveMoonCalculator.getCurrentMoonState()
                     "नमस्कार! नक्षत्रामध्ये बदल झाला आहे. आता ${s.nakshatra.marathi} नक्षत्र सुरू झाले आहे. ${until(s.nextNakshatraMillis)}"
                 }
@@ -277,33 +279,43 @@ private object VoiceAnnouncement {
                         "$base ${g.tara.marathi} तारा. काय करावे: ${g.doText} काय टाळावे: ${g.avoidText}"
                     } else base
                 }
-                3 -> {
+                213 -> {
+                    val s = LiveMoonCalculator.getCurrentMoonState()
+                    val base = "नमस्कार! नक्षत्र मार्गदर्शनाची चाचणी सूचना आहे. सध्या ${s.nakshatra.marathi} नक्षत्र सुरू आहे. ${until(s.nextNakshatraMillis)}"
+                    val profile = BirthProfileStore.load(context)
+                    if (profile != null && profile.birthNakshatra.isNotBlank()) {
+                        val g = NakshatraGuidanceCalculator.currentGuidance(profile.birthNakshatra, now)
+                        "$base ${g.tara.marathi} तारा. काय करावे: ${g.doText} काय टाळावे: ${g.avoidText}"
+                    } else base
+                }
+                3, 203 -> {
                     val s = LiveMoonCalculator.getCurrentMoonState()
                     "नमस्कार! नक्षत्र चरणामध्ये बदल झाला आहे. आता ${s.pada} वा चरण सुरू झाला आहे. ${until(s.nextCharanMillis)}"
                 }
-                11 -> {
+                11, 204 -> {
                     val s = LiveSunCalculator.getCurrentSunState()
                     "नमस्कार! सूर्य राशीमध्ये बदल झाला आहे. आता ${s.rashi.marathi} राशी सुरू झाली आहे. ${until(s.nextRashiMillis)}"
                 }
-                12 -> {
+                12, 205 -> {
                     val s = LiveSunCalculator.getCurrentSunState()
                     "नमस्कार! सूर्य नक्षत्रामध्ये बदल झाला आहे. आता ${s.nakshatra.marathi} नक्षत्र सुरू झाले आहे. ${until(s.nextNakshatraMillis)}"
                 }
-                13 -> {
+                13, 206 -> {
                     val s = LiveSunCalculator.getCurrentSunState()
                     "नमस्कार! सूर्य नक्षत्र चरणामध्ये बदल झाला आहे. आता ${s.pada} वा चरण सुरू झाला आहे. ${until(s.nextCharanMillis)}"
                 }
-                21, 22, 23, 24, 26, 27 -> {
+                21, 22, 23, 24, 26, 27, 207, 208, 209, 210, 211, 212 -> {
                     val p = LivePanchangCalculator.getCurrentPanchangState(
                         LocationPrefs(context).latitude, LocationPrefs(context).longitude
                     )
                     when (id) {
-                        21 -> "नमस्कार! तिथीमध्ये बदल झाला आहे. आता ${p.tithi} तिथी सुरू झाली आहे. ${until(p.nextTithiMillis)}"
-                        22 -> "नमस्कार! योगामध्ये बदल झाला आहे. आता ${p.yoga} योग सुरू झाला आहे. ${until(p.nextYogaMillis)}"
-                        23 -> "नमस्कार! करणामध्ये बदल झाला आहे. आता ${p.karana} करण सुरू झाले आहे. ${until(p.nextKaranaMillis)}"
-                        24 -> "नमस्कार! पक्षामध्ये बदल झाला आहे. आता ${p.paksha} पक्ष सुरू झाला आहे. ${until(p.nextPakshaMillis)}"
-                        26 -> "नमस्कार! प्रहरामध्ये बदल झाला आहे. आता ${p.prahar} प्रहर सुरू झाला आहे. ${until(p.nextPraharMillis)}"
-                        else -> "नमस्कार! लग्नामध्ये बदल झाला आहे. आता ${p.lagna} लग्न सुरू झाले आहे. ${until(p.nextLagnaMillis)}"
+                        21, 207 -> "नमस्कार! तिथीमध्ये बदल झाला आहे. आता ${p.tithi} तिथी सुरू झाली आहे. ${until(p.nextTithiMillis)}"
+                        22, 208 -> "नमस्कार! योगामध्ये बदल झाला आहे. आता ${p.yoga} योग सुरू झाला आहे. ${until(p.nextYogaMillis)}"
+                        23, 209 -> "नमस्कार! करणामध्ये बदल झाला आहे. आता ${p.karana} करण सुरू झाले आहे. ${until(p.nextKaranaMillis)}"
+                        24, 210 -> "नमस्कार! पक्षामध्ये बदल झाला आहे. आता ${p.paksha} पक्ष सुरू झाला आहे. ${until(p.nextPakshaMillis)}"
+                        26, 211 -> "नमस्कार! प्रहरामध्ये बदल झाला आहे. आता ${p.prahar} प्रहर सुरू झाला आहे. ${until(p.nextPraharMillis)}"
+                        27, 212 -> "नमस्कार! लग्नामध्ये बदल झाला आहे. आता ${p.lagna} लग्न सुरू झाले आहे. ${until(p.nextLagnaMillis)}"
+                        else -> "नमस्कार! $fallback"
                     }
                 }
                 else -> "नमस्कार! $fallback"

@@ -367,34 +367,58 @@ class AlarmScheduler(
     }
 
     // ==========================================
-    // PANCHANG RINGTONE TEST
+    // ==========================================
+    // FULL VOICE / NOTIFICATION TEST
     // ==========================================
 
-    fun schedulePanchangTestSequence() {
+    /**
+     * Schedules every supported announcement event a few seconds apart.
+     * AlarmReceiver uses the same LIVE calculation path as real alarms, so
+     * this is a practical end-to-end test for notification + Marathi TTS.
+     */
+    fun scheduleFullVoiceTestSequence() {
+        val tests = listOf(
+            Triple(201, "🌙 चंद्र राशी Voice Test", "चंद्र राशी"),
+            Triple(202, "⭐ चंद्र नक्षत्र Voice Test", "चंद्र नक्षत्र"),
+            Triple(203, "🔔 चंद्र चरण Voice Test", "चंद्र चरण"),
+            Triple(204, "☀️ सूर्य राशी Voice Test", "सूर्य राशी"),
+            Triple(205, "☀️ सूर्य नक्षत्र Voice Test", "सूर्य नक्षत्र"),
+            Triple(206, "☀️ सूर्य चरण Voice Test", "सूर्य चरण"),
+            Triple(207, "📅 तिथी Voice Test", "तिथी"),
+            Triple(208, "✨ योग Voice Test", "योग"),
+            Triple(209, "🔔 करण Voice Test", "करण"),
+            Triple(210, "🌗 पक्ष Voice Test", "पक्ष"),
+            Triple(211, "⏳ प्रहर Voice Test", "प्रहर"),
+            Triple(212, "⭐ लग्न Voice Test", "लग्न"),
+            Triple(213, "🌙 नक्षत्र मार्गदर्शन Voice Test", "नक्षत्र मार्गदर्शन")
+        )
 
-        val tests =
-            listOf(
-                Triple(201, "📅 तिथी बदल Test", "tithi_badal"),
-                Triple(202, "✨ योग बदल Test", "yog_badal"),
-                Triple(203, "🔔 करण बदल Test", "karan_badal"),
-                Triple(204, "🌗 पक्ष बदल Test", "paksh_badal"),
-                Triple(205, "⏳ प्रहर बदल Test", "prahar_badal"),
-                Triple(206, "⭐ लग्न बदल Test", "lagn_badal")
-            )
-
-        val start =
-            System.currentTimeMillis() + 2_000L
-
+        val start = System.currentTimeMillis() + 2_500L
         tests.forEachIndexed { index, item ->
-
             schedule(
                 id = item.first,
-                at = start + (index * 5_000L),
+                at = start + index * 15_000L,
                 title = item.second,
-                message = "Panchang ringtone test",
-                soundResource = item.third
+                message = "${item.third} चाचणी सूचना आहे.",
+                soundResource = null
             )
         }
+    }
+
+    // Backward-compatible name used by the existing UI.
+    fun schedulePanchangTestSequence() = scheduleFullVoiceTestSequence()
+
+    /** Cancels all temporary test alarms without touching real alarms. */
+    fun cancelAllTestAlarms() {
+        cancel(99)
+        cancel(101)
+        cancel(102)
+        cancel(103)
+        cancel(104)
+        cancel(105)
+        cancel(121)
+        cancel(122)
+        for (id in 201..213) cancel(id)
     }
 
     // ==========================================
@@ -518,7 +542,7 @@ class AlarmScheduler(
         cancel(121)
         cancel(122)
 
-        for (id in 201..206) {
+        for (id in 201..213) {
             cancel(id)
         }
     }
