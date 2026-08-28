@@ -171,7 +171,8 @@ private object VoiceAnnouncement {
         }
 
         val text = buildAnnouncement(context, id, fallbackMessage)
-        val tts = TextToSpeech(context) { status ->
+        lateinit var tts: TextToSpeech
+        tts = TextToSpeech(context) { status ->
             if (status != TextToSpeech.SUCCESS) {
                 pendingResult.finish()
                 return@TextToSpeech
