@@ -297,5 +297,18 @@ class AlarmPrefs(
         get() = p.getBoolean("voice_background_music", true)
         set(value) { p.edit().putBoolean("voice_background_music", value).apply() }
 
+    /** Saved TTS voice name so the user's selected/auto-selected female voice is reused. */
+    var preferredVoiceName: String
+        get() = p.getString("preferred_voice_name", "") ?: ""
+        set(value) { p.edit().putString("preferred_voice_name", value).apply() }
+
+    // ==========================================
+    // NAKSHATRA GUIDANCE — 3 HOUR REMINDER
+    // ==========================================
+
+    /** Whether the personalized Nakshatra Guidance reminder repeats every 3 hours. */
+    var nakshatraGuidanceEveryThreeHours: Boolean
+        get() = p.getBoolean("nakshatra_guidance_every_3_hours", true)
+        set(value) { p.edit().putBoolean("nakshatra_guidance_every_3_hours", value).apply() }
 
 }

@@ -282,22 +282,25 @@ class AlarmScheduler(
             )
         }
 
-        // Personalized guidance reminder every 3 hours. Keep an existing
-        // future reminder untouched so unrelated refreshes/location updates
-        // do not reset the 3-hour interval. After delivery, AlarmReceiver
-        // calls scheduleAll() and a fresh 3-hour reminder is created.
-        val reminderAlreadyScheduled =
-            scheduledPrefs.getString("event_122", null) != null && isAlarmScheduled(122)
-        if (!reminderAlreadyScheduled) {
-            val nextReminder = System.currentTimeMillis() + 3L * 60L * 60L * 1000L
-            reconcile(
-                id = 122,
-                enabled = true,
-                at = nextReminder,
-                title = "🌙 चालू नक्षत्र मार्गदर्शन",
-                message = "सध्याचे नक्षत्र, तारा, काय करावे आणि काय टाळावे पाहा.",
-                soundResource = "nakshatra"
-            )
+        // Personalized guidance reminder every 3 hours. This reminder has
+        // its own saved ON/OFF switch and must not mute any other Life Alarm.
+        val guidancePrefs = AlarmPrefs(context)
+        if (!guidancePrefs.nakshatraGuidanceEveryThreeHours) {
+            cancel(122)
+        } else {
+            val reminderAlreadyScheduled =
+                scheduledPrefs.getString("event_122", null) != null && isAlarmScheduled(122)
+            if (!reminderAlreadyScheduled) {
+                val nextReminder = System.currentTimeMillis() + 3L * 60L * 60L * 1000L
+                reconcile(
+                    id = 122,
+                    enabled = true,
+                    at = nextReminder,
+                    title = "🌙 चालू नक्षत्र मार्गदर्शन",
+                    message = "सध्याचे नक्षत्र, तारा, काय करावे आणि काय टाळावे पाहा.",
+                    soundResource = "nakshatra"
+                )
+            }
         }
     }
 
@@ -390,17 +393,28 @@ class AlarmScheduler(
             Triple(210, "🌗 पक्ष Voice Test", "पक्ष"),
             Triple(211, "⏳ प्रहर Voice Test", "प्रहर"),
             Triple(212, "⭐ लग्न Voice Test", "लग्न"),
-            Triple(213, "🌙 नक्षत्र मार्गदर्शन Voice Test", "नक्षत्र मार्गदर्शन")
+            Triple(213, "🌙 नक्षत्र मार्गदर्शन Voice Test", "नक्षत्र मार्गदर्शन"),
+            Triple(214, "📅 आज वेळ Voice Test", "आज वेळ"),
+            Triple(215, "📅 उद्या वेळ Voice Test", "उद्या वेळ"),
+            Triple(216, "📅 पुढील तारीख Voice Test", "पुढील तारीख")
         )
 
         val start = System.currentTimeMillis() + 2_500L
         tests.forEachIndexed { index, item ->
+            val fireAt = start + index * 15_000L
+            val announcementTime = when (item.first) {
+                214 -> fireAt
+                215 -> System.currentTimeMillis() + 24L * 60L * 60L * 1000L + 60_000L
+                216 -> System.currentTimeMillis() + 3L * 24L * 60L * 60L * 1000L + 60_000L
+                else -> fireAt
+            }
             schedule(
                 id = item.first,
-                at = start + index * 15_000L,
+                at = fireAt,
                 title = item.second,
                 message = "${item.third} चाचणी सूचना आहे.",
-                soundResource = null
+                soundResource = null,
+                eventAtForAnnouncement = announcementTime
             )
         }
     }
@@ -418,7 +432,7 @@ class AlarmScheduler(
         cancel(105)
         cancel(121)
         cancel(122)
-        for (id in 201..213) cancel(id)
+        for (id in 201..216) cancel(id)
     }
 
     // ==========================================
@@ -430,7 +444,8 @@ class AlarmScheduler(
         at: Long,
         title: String,
         message: String,
-        soundResource: String? = null
+        soundResource: String? = null,
+        eventAtForAnnouncement: Long? = null
     ) {
 
         val safeAt = maxOf(
@@ -458,7 +473,7 @@ class AlarmScheduler(
             putExtra("title", title)
             putExtra("message", message)
             putExtra("id", id)
-            putExtra("eventAt", safeAt)
+            putExtra("eventAt", eventAtForAnnouncement ?: safeAt)
             if (soundResource != null) {
                 putExtra("soundResource", soundResource)
             }

@@ -21,6 +21,7 @@ import com.mahaesuvidha.chandrapanchangalarm.settings.AlarmPrefs
 import com.mahaesuvidha.chandrapanchangalarm.settings.LocationPrefs
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
@@ -40,19 +41,20 @@ class AlarmReceiver : BroadcastReceiver() {
         if (eventAt > 0L) firedPrefs.edit().putLong(firedKey, eventAt).apply()
 
         val isGuidanceNotification = id == 2 || id == 121 || id == 122 || id == 213
+        val prefs = AlarmPrefs(context)
+
         if (isGuidanceNotification) {
-            showNakshatraGuidanceNotification(context, id)
+            showNakshatraGuidanceNotification(context, id, eventAt)
         } else {
-            showNotification(context, title, message, id)
+            showNotification(context, title, message, id, eventAt)
         }
 
-        val prefs = AlarmPrefs(context)
         if (prefs.voiceAnnouncement) {
             val pendingResult = goAsync()
             val appContext = context.applicationContext
             Thread {
                 try {
-                    VoiceAnnouncement.speakEvent(appContext, id, message, pendingResult)
+                    VoiceAnnouncement.speakEvent(appContext, id, message, eventAt, pendingResult)
                 } catch (t: Throwable) {
                     android.util.Log.e("LifeAlarm", "Voice announcement failed", t)
                     pendingResult.finish()
@@ -71,7 +73,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showNakshatraGuidanceNotification(context: Context, id: Int) {
+    private fun showNakshatraGuidanceNotification(context: Context, id: Int, eventAt: Long) {
         val profile = BirthProfileStore.load(context.applicationContext) ?: return
         if (profile.birthNakshatra.isBlank()) return
 
@@ -81,7 +83,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val title = "🌙 नक्षत्र मार्गदर्शन — ${guidance.nakshatra}"
         val taraLine = "तारा: ${guidance.tara.marathi}"
-        val text = "$taraLine\n\nकाय करावे: ${guidance.doText}\n\nकाय टाळावे: ${guidance.avoidText}"
+        val timing = if (eventAt > 0L) "\n\nबदलाची वेळ: ${VoiceAnnouncement.formatEventTiming(eventAt)}" else ""
+        val text = "$taraLine$timing\n\nकाय करावे: ${guidance.doText}\n\nकाय टाळावे: ${guidance.avoidText}"
         val bigText = NotificationCompat.BigTextStyle()
             .bigText(text)
             .setBigContentTitle(title)
@@ -126,7 +129,7 @@ class AlarmReceiver : BroadcastReceiver() {
         notificationManager.notify(7000 + id, notification)
     }
 
-    private fun showNotification(context: Context, title: String, message: String, id: Int) {
+    private fun showNotification(context: Context, title: String, message: String, id: Int, eventAt: Long) {
         val channelId = "life_alarm_voice_v1"
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -144,7 +147,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText(message)
+            .setContentText("$message\nबदलाची वेळ: ${VoiceAnnouncement.formatEventTiming(eventAt)}")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
@@ -162,6 +165,7 @@ private object VoiceAnnouncement {
         context: Context,
         id: Int,
         fallbackMessage: String,
+        eventAt: Long,
         pendingResult: BroadcastReceiver.PendingResult
     ) {
         val prefs = AlarmPrefs(context)
@@ -170,7 +174,7 @@ private object VoiceAnnouncement {
             return
         }
 
-        val text = buildAnnouncement(context, id, fallbackMessage)
+        val text = buildAnnouncement(context, id, fallbackMessage, eventAt)
         lateinit var tts: TextToSpeech
         tts = TextToSpeech(context) { status ->
             if (status != TextToSpeech.SUCCESS) {
@@ -184,12 +188,12 @@ private object VoiceAnnouncement {
                 result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 val hi = Locale("hi", "IN")
                 tts.setLanguage(hi)
-                selectPreferredFemaleVoice(tts, hi)
+                selectPreferredFemaleVoice(tts, hi, prefs)
             } else {
                 // Prefer a female Marathi voice when the installed TTS engine
                 // exposes one. Android does not provide a standard gender API,
                 // so selection is based on the engine's advertised voice name.
-                selectPreferredFemaleVoice(tts, mr)
+                selectPreferredFemaleVoice(tts, mr, prefs)
             }
 
             tts.setAudioAttributes(
@@ -231,22 +235,84 @@ private object VoiceAnnouncement {
         }
     }
 
-    private fun selectPreferredFemaleVoice(tts: TextToSpeech, locale: Locale) {
+    private fun selectPreferredFemaleVoice(tts: TextToSpeech, locale: Locale, prefs: AlarmPrefs) {
         val voices = runCatching { tts.voices ?: emptyList() }.getOrDefault(emptyList())
-        val marathiVoices = voices.filter { voice ->
-            voice.locale.language.equals(locale.language, ignoreCase = true) &&
-                voice.locale.country.equals(locale.country, ignoreCase = true)
+        val languageVoices = voices.filter { voice ->
+            voice.locale.language.equals(locale.language, ignoreCase = true)
         }
+        val marathiVoices = languageVoices.sortedWith(
+            compareByDescending<android.speech.tts.Voice> {
+                it.locale.country.equals(locale.country, ignoreCase = true)
+            }
+        )
         if (marathiVoices.isEmpty()) return
 
         val femaleKeywords = listOf("female", "woman", "girl", "fem", "स्त्री", "महिला")
+        val saved = marathiVoices.firstOrNull { voice ->
+            voice.name == prefs.preferredVoiceName
+        }
         val female = marathiVoices.firstOrNull { voice ->
             femaleKeywords.any { key -> voice.name.contains(key, ignoreCase = true) }
         }
-        runCatching { tts.voice = female ?: marathiVoices.first() }
+        val selected = saved ?: female ?: marathiVoices.first()
+        runCatching {
+            tts.voice = selected
+            prefs.preferredVoiceName = selected.name
+        }
     }
 
-    private fun buildAnnouncement(context: Context, id: Int, fallback: String): String {
+    fun formatEventTiming(eventAt: Long): String {
+        if (eventAt <= 0L) return "वेळ उपलब्ध नाही"
+        val tz = TimeZone.getTimeZone("Asia/Kolkata")
+        val nowCal = Calendar.getInstance(tz)
+        val eventCal = Calendar.getInstance(tz).apply { timeInMillis = eventAt }
+
+        fun dayStart(c: Calendar): Calendar = Calendar.getInstance(tz).apply {
+            set(Calendar.YEAR, c.get(Calendar.YEAR))
+            set(Calendar.DAY_OF_YEAR, c.get(Calendar.DAY_OF_YEAR))
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val today = dayStart(nowCal)
+        val tomorrow = Calendar.getInstance(tz).apply {
+            timeInMillis = today.timeInMillis
+            add(Calendar.DAY_OF_YEAR, 1)
+        }
+        val eventDay = dayStart(eventCal)
+
+        val hour12 = eventCal.get(Calendar.HOUR).let { if (it == 0) 12 else it }
+        val minute = eventCal.get(Calendar.MINUTE)
+        val am = eventCal.get(Calendar.AM_PM) == Calendar.AM
+        val part = when {
+            am && hour12 < 5 -> "पहाटे"
+            am -> "सकाळी"
+            !am && hour12 < 5 -> "दुपारी"
+            !am && hour12 < 8 -> "संध्याकाळी"
+            else -> "रात्री"
+        }
+        val time = if (minute == 0) {
+            "$part $hour12 वाजता"
+        } else {
+            "$part $hour12 वाजून $minute मिनिटांनी"
+        }
+
+        return when {
+            eventDay.timeInMillis == today.timeInMillis -> "आज $time"
+            eventDay.timeInMillis == tomorrow.timeInMillis -> "उद्या $time"
+            else -> {
+                val months = arrayOf(
+                    "जानेवारी", "फेब्रुवारी", "मार्च", "एप्रिल", "मे", "जून",
+                    "जुलै", "ऑगस्ट", "सप्टेंबर", "ऑक्टोबर", "नोव्हेंबर", "डिसेंबर"
+                )
+                "${eventCal.get(Calendar.DAY_OF_MONTH)} ${months[eventCal.get(Calendar.MONTH)]} ${eventCal.get(Calendar.YEAR)} रोजी $time"
+            }
+        }
+    }
+
+    private fun buildAnnouncement(context: Context, id: Int, fallback: String, eventAt: Long): String {
         val now = System.currentTimeMillis()
         val timeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
@@ -258,7 +324,7 @@ private object VoiceAnnouncement {
         }
 
         fun until(millis: Long): String =
-            if (millis > now) "${timeOnly(millis)} वाजेपर्यंत राहील." else ""
+            if (millis > now) "हे ${formatEventTiming(millis)} पर्यंत राहील." else ""
 
         return runCatching {
             when (id) {
@@ -318,6 +384,9 @@ private object VoiceAnnouncement {
                         else -> "नमस्कार! $fallback"
                     }
                 }
+                214 -> "नमस्कार! आजच्या वेळेची चाचणी आहे. हा संदेश ${formatEventTiming(eventAt)} या वेळेसाठी आहे."
+                215 -> "नमस्कार! उद्याच्या वेळेची चाचणी आहे. हा संदेश ${formatEventTiming(eventAt)} या वेळेसाठी आहे."
+                216 -> "नमस्कार! पुढील तारखेची चाचणी आहे. हा संदेश ${formatEventTiming(eventAt)} या वेळेसाठी आहे."
                 else -> "नमस्कार! $fallback"
             }
         }.getOrElse {

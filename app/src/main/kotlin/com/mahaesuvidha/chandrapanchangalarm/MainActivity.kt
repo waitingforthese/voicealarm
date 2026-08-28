@@ -1,6 +1,8 @@
 package com.mahaesuvidha.chandrapanchangalarm
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -1382,7 +1384,7 @@ private fun ChandraSuryaHomeContent(
         TestButton(
 
             text =
-                "🎙️ सर्व Voice Test (13 सूचना)",
+                "🎙️ सर्व Voice Test (16 सूचना)",
 
             onClick =
                 onTestAllVoice
@@ -2540,6 +2542,7 @@ private fun SettingsDialog(
     var lagnaAlarm by remember { mutableStateOf(prefs.lagnaAlarm) }
     var voiceAnnouncement by remember { mutableStateOf(prefs.voiceAnnouncement) }
     var backgroundMusic by remember { mutableStateOf(prefs.backgroundMusic) }
+    var nakshatraGuidanceEveryThreeHours by remember { mutableStateOf(prefs.nakshatraGuidanceEveryThreeHours) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2616,6 +2619,35 @@ private fun SettingsDialog(
                     backgroundMusic = it
                     prefs.backgroundMusic = it
                 }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "👩‍🦰 मराठी स्त्री आवाज प्राधान्याने वापरला जाईल. निवडलेला TTS voice पुढील वेळीही जतन राहील.",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray
+                )
+
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(10.dp))
+                Text("🌙 नक्षत्र मार्गदर्शन", fontWeight = FontWeight.Bold)
+                Text(
+                    "नक्षत्र मार्गदर्शनाची सूचना प्रत्येक ३ तासांनी येईल.",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray
+                )
+                SwitchRow("दर ३ तासांनी नक्षत्र मार्गदर्शन", nakshatraGuidanceEveryThreeHours) {
+                    nakshatraGuidanceEveryThreeHours = it
+                    prefs.nakshatraGuidanceEveryThreeHours = it
+                }
+                Text(
+                    if (nakshatraGuidanceEveryThreeHours)
+                        "ON: दर ३ तासांनी नक्षत्र मार्गदर्शनाची Notification आणि Voice येईल."
+                    else
+                        "OFF: दर ३ तासांची नक्षत्र मार्गदर्शन सूचना बंद आहे.",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray
+                )
 
                 Spacer(Modifier.height(14.dp))
                 HorizontalDivider()
