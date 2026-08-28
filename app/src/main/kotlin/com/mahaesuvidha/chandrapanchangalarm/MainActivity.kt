@@ -273,7 +273,9 @@ private fun AppRoot(
             onTestRashi = onTestRashi,
             onTestNakshatra = onTestNakshatra,
             onTestCharan = onTestCharan,
-            onTestPanchang = onTestPanchang
+            onTestPanchang = onTestPanchang,
+            onTestAllVoice = onTestAllVoice,
+            onCancelTests = onCancelTests
         )
     }
 }
@@ -486,7 +488,11 @@ private fun ChandraSuryaHome(
 
     onTestCharan: () -> Unit,
 
-    onTestPanchang: () -> Unit
+    onTestPanchang: () -> Unit,
+
+    onTestAllVoice: () -> Unit,
+
+    onCancelTests: () -> Unit
 
 ) {
 
@@ -755,6 +761,8 @@ LaunchedEffect(calculationLocationVersion, refreshRequest) {
         onTestNakshatra = onTestNakshatra,
         onTestCharan = onTestCharan,
         onTestPanchang = onTestPanchang,
+        onTestAllVoice = onTestAllVoice,
+        onCancelTests = onCancelTests,
         liveLocation = liveLocation,
         isRefreshing = isRefreshing,
         lastRefreshMillis = lastRefreshMillis,
@@ -820,6 +828,10 @@ private fun ChandraSuryaHomeContent(
     onTestCharan: () -> Unit,
 
     onTestPanchang: () -> Unit,
+
+    onTestAllVoice: () -> Unit,
+
+    onCancelTests: () -> Unit,
 
     liveLocation: String,
 
@@ -2151,12 +2163,17 @@ private fun TestButton(
 // ==========================================================
 
 private fun currentTithiNumber(state: PanchangState): Int {
-    val names = listOf("प्रतिपदा", "द्वितीया", "तृतीया", "चतुर्थी", "पंचमी", "षष्ठी", "सप्तमी", "अष्टमी", "नवमी", "दशमी", "एकादशी", "द्वादशी", "त्रयोदशी", "चतुर्दशी", "पौर्णिमा", "अमावस्या")
-    val n = names.indexOf(state.tithi)
-    if (state.tithi == "अमावस्या") return 30
-    if (n < 0) return 1
-    return if (n <= 14) n + 1 else 15
+    val names = listOf(
+        "प्रतिपदा", "द्वितीया", "तृतीया", "चतुर्थी", "पंचमी",
+        "षष्ठी", "सप्तमी", "अष्टमी", "नवमी", "दशमी",
+        "एकादशी", "द्वादशी", "त्रयोदशी", "चतुर्दशी", "पौर्णिमा"
+    )
+    val value = state.tithi.trim().replace("पूर्णिमा", "पौर्णिमा")
+    if (value == "अमावस्या") return 30
+    val n = names.indexOf(value)
+    return if (n >= 0) n + 1 else 1
 }
+
 
 @Composable
 private fun GhatChakraCard(ghat: GhatChakra, gender: String) {
