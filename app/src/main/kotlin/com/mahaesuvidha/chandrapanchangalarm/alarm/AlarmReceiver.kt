@@ -203,7 +203,7 @@ private object VoiceAnnouncement {
                     .build()
             )
             tts.setSpeechRate(0.92f)
-            tts.setPitch(1.06f)
+            tts.setPitch(1.10f)
 
             val music = if (prefs.backgroundMusic) {
                 runCatching {
@@ -248,16 +248,25 @@ private object VoiceAnnouncement {
         if (marathiVoices.isEmpty()) return
 
         val femaleKeywords = listOf("female", "woman", "girl", "fem", "स्त्री", "महिला")
-        val saved = marathiVoices.firstOrNull { voice ->
-            voice.name == prefs.preferredVoiceName
-        }
         val female = marathiVoices.firstOrNull { voice ->
             femaleKeywords.any { key -> voice.name.contains(key, ignoreCase = true) }
         }
-        val selected = saved ?: female ?: marathiVoices.first()
+        val saved = marathiVoices.firstOrNull { voice ->
+            voice.name == prefs.preferredVoiceName &&
+                femaleKeywords.any { key -> voice.name.contains(key, ignoreCase = true) }
+        }
+        // Never reuse a previously saved voice if it is not advertised as female.
+        // Prefer an explicitly female Marathi voice; only fall back when the device
+        // exposes no identifiable female Marathi/Indian voice at all.
+        val selected = saved ?: female ?: marathiVoices.firstOrNull {
+            it.locale.country.equals("IN", ignoreCase = true)
+        } ?: marathiVoices.first()
         runCatching {
             tts.voice = selected
             prefs.preferredVoiceName = selected.name
+            if (female == null) {
+                android.util.Log.w("LifeAlarm", "No explicitly female Marathi TTS voice was exposed by the installed engine; using the best Marathi fallback.")
+            }
         }
     }
 

@@ -255,13 +255,23 @@ private fun AppRoot(
     }) }
 
     if (profile == null) {
-        BirthLoginScreen { newProfile ->
-            BirthProfileStore.save(context.applicationContext, newProfile)
-            profile = newProfile
-            Thread {
-                runCatching { AlarmScheduler(context.applicationContext).scheduleAll() }
-            }.start()
-        }
+        BirthLoginScreen(
+            savedProfiles = BirthProfileStore.savedProfiles(context.applicationContext),
+            onSave = { newProfile ->
+                BirthProfileStore.save(context.applicationContext, newProfile)
+                profile = newProfile
+                Thread {
+                    runCatching { AlarmScheduler(context.applicationContext).scheduleAll() }
+                }.start()
+            },
+            onSelectSaved = { savedProfile ->
+                BirthProfileStore.activate(context.applicationContext, savedProfile)
+                profile = savedProfile
+                Thread {
+                    runCatching { AlarmScheduler(context.applicationContext).scheduleAll() }
+                }.start()
+            }
+        )
     } else {
         ChandraSuryaHome(
             profile = profile!!,
@@ -269,7 +279,7 @@ private fun AppRoot(
                 // Remove all alarms tied to the old birth profile before logout
                 // so the next person's guidance can never use the previous profile.
                 runCatching { AlarmScheduler(context.applicationContext).cancelAll() }
-                BirthProfileStore.clear(context.applicationContext)
+                BirthProfileStore.deactivate(context.applicationContext)
                 profile = null
             },
             onTestRashi = onTestRashi,
@@ -283,7 +293,11 @@ private fun AppRoot(
 }
 
 @Composable
-private fun BirthLoginScreen(onSave: (BirthProfile) -> Unit) {
+private fun BirthLoginScreen(
+    savedProfiles: List<BirthProfile>,
+    onSave: (BirthProfile) -> Unit,
+    onSelectSaved: (BirthProfile) -> Unit
+) {
     var name by remember { mutableStateOf("") }
     var birthDate by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("Male") }
@@ -308,6 +322,26 @@ private fun BirthLoginScreen(onSave: (BirthProfile) -> Unit) {
         Text("Life Alarm", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
         Text("जन्ममाहिती Login", color = Color.LightGray, fontSize = 16.sp)
         Spacer(Modifier.height(20.dp))
+
+        if (savedProfiles.isNotEmpty()) {
+            Text("👥 जतन केलेले Users", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            savedProfiles.forEach { saved ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(saved.name, fontWeight = FontWeight.Bold)
+                            Text("${saved.birthDate} • ${saved.birthTime} • ${saved.birthPlace}", fontSize = 11.sp, color = Color.DarkGray)
+                            Text("चंद्र राशी: ${saved.birthMoonRashi} • नक्षत्र: ${saved.birthNakshatra}", fontSize = 11.sp, color = Color.DarkGray)
+                        }
+                        Button(onClick = { onSelectSaved(saved) }) { Text("वापरा") }
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("नवीन व्यक्तीसाठी खाली जन्ममाहिती भरा.", color = Color.LightGray, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+        }
 
         val fieldColors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = Color.White,
@@ -413,7 +447,7 @@ private fun BirthLoginScreen(onSave: (BirthProfile) -> Unit) {
 
         Spacer(Modifier.height(14.dp))
         Text(
-            "ही माहिती save राहील. Logout केल्यावर पुढील व्यक्तीची नवीन जन्ममाहिती भरता येईल.",
+            "जन्ममाहिती save राहील. Logout केल्यावर जुना User जतन राहतो आणि नवीन User Login करता येतो.",
             color = Color.LightGray, fontSize = 12.sp, textAlign = TextAlign.Center
         )
     }
