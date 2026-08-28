@@ -230,7 +230,6 @@ private object VoiceAnnouncement {
     }
 
     private fun selectPreferredFemaleVoice(tts: TextToSpeech, locale: Locale) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.L) return
         val voices = runCatching { tts.voices ?: emptyList() }.getOrDefault(emptyList())
         val marathiVoices = voices.filter { voice ->
             voice.locale.language.equals(locale.language, ignoreCase = true) &&
