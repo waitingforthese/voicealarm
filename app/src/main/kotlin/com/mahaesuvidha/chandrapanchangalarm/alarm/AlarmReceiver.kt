@@ -183,6 +183,11 @@ private object VoiceAnnouncement {
             if (result == TextToSpeech.LANG_MISSING_DATA ||
                 result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 tts.setLanguage(Locale("hi", "IN"))
+            } else {
+                // Prefer a female Marathi voice when the installed TTS engine
+                // exposes one. Android does not provide a standard gender API,
+                // so selection is based on the engine's advertised voice name.
+                selectPreferredFemaleVoice(tts, mr)
             }
 
             tts.setAudioAttributes(
@@ -222,6 +227,22 @@ private object VoiceAnnouncement {
             val utteranceId = "life_alarm_${System.currentTimeMillis()}"
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         }
+    }
+
+    private fun selectPreferredFemaleVoice(tts: TextToSpeech, locale: Locale) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.L) return
+        val voices = runCatching { tts.voices ?: emptyList() }.getOrDefault(emptyList())
+        val marathiVoices = voices.filter { voice ->
+            voice.locale.language.equals(locale.language, ignoreCase = true) &&
+                voice.locale.country.equals(locale.country, ignoreCase = true)
+        }
+        if (marathiVoices.isEmpty()) return
+
+        val femaleKeywords = listOf("female", "woman", "girl", "fem", "स्त्री", "महिला")
+        val female = marathiVoices.firstOrNull { voice ->
+            femaleKeywords.any { key -> voice.name.contains(key, ignoreCase = true) }
+        }
+        runCatching { tts.voice = female ?: marathiVoices.first() }
     }
 
     private fun buildAnnouncement(context: Context, id: Int, fallback: String): String {

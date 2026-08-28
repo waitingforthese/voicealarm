@@ -36,7 +36,7 @@ object PanchangCalculator {
         "द्वादशी",
         "त्रयोदशी",
         "चतुर्दशी",
-        "पूर्णिमा"
+        "पौर्णिमा"
     )
 
     private val yogaNames = listOf(

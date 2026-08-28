@@ -2123,7 +2123,7 @@ private fun TestButton(
 // ==========================================================
 
 private fun currentTithiNumber(state: PanchangState): Int {
-    val names = listOf("प्रतिपदा", "द्वितीया", "तृतीया", "चतुर्थी", "पंचमी", "षष्ठी", "सप्तमी", "अष्टमी", "नवमी", "दशमी", "एकादशी", "द्वादशी", "त्रयोदशी", "चतुर्दशी", "पौर्णिमा", "पूर्णिमा", "अमावस्या")
+    val names = listOf("प्रतिपदा", "द्वितीया", "तृतीया", "चतुर्थी", "पंचमी", "षष्ठी", "सप्तमी", "अष्टमी", "नवमी", "दशमी", "एकादशी", "द्वादशी", "त्रयोदशी", "चतुर्दशी", "पौर्णिमा", "अमावस्या")
     val n = names.indexOf(state.tithi)
     if (state.tithi == "अमावस्या") return 30
     if (n < 0) return 1
@@ -2213,7 +2213,7 @@ private fun PanchangCard(
         SimplePanchangValueCard("🗓️ वार", state.weekday, matches["वार"] == true)
         PanchangChangeSection("तिथी", state.tithi, state.tithiStartTime, state.nextTithi, state.nextTithiTime, matches["तिथी"] == true)
         PanchangInfoCard("⭐ नक्षत्र", moonState.nakshatra.marathi, moonState.nakshatraStartTime, moonState.nextNakshatra, moonState.nextNakshatraTime, matches["नक्षत्र"] == true)
-        PanchangChangeSection("योग (सूर्यसिद्धांत)", state.yoga, state.yogaStartTime, state.nextYoga, state.nextYogaTime, matches["योग"] == true)
+        PanchangChangeSection("योग", state.yoga, state.yogaStartTime, state.nextYoga, state.nextYogaTime, matches["योग"] == true)
         PanchangChangeSection("करण", state.karana, state.karanaStartTime, state.nextKarana, state.nextKaranaTime, matches["करण"] == true)
         PanchangChangeSection("पक्ष", state.paksha, state.pakshaStartTime, state.nextPaksha, state.nextPakshaTime, matches["पक्ष"] == true)
         SimplePanchangValueCard("🌙 घात मास / सध्याचा मास", state.masa, matches["मास"] == true)
@@ -2235,7 +2235,7 @@ private fun GhatAwareCardContainer(active: Boolean, content: @Composable () -> U
 
 @Composable
 private fun PanchangChangeSection(label: String, value: String, startTime: String, next: String, endTime: String, active: Boolean) {
-    val icon = when (label) { "तिथी" -> "🌙"; "योग" -> "✨"; "करण" -> "🔔"; "पक्ष" -> "🌗"; else -> "📌" }
+    val icon = when { label == "तिथी" -> "🌙"; label == "योग" || label.startsWith("योग ") -> "✨"; label == "करण" -> "🔔"; label == "पक्ष" -> "🌗"; else -> "📌" }
     GhatAwareCardContainer(active) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
