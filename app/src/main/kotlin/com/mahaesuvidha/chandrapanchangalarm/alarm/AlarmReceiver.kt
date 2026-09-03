@@ -10,6 +10,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
 import com.mahaesuvidha.chandrapanchangalarm.model.BirthProfileStore
@@ -34,6 +35,15 @@ class AlarmReceiver : BroadcastReceiver() {
         val id = intent.getIntExtra("id", 1)
         val eventAt = intent.getLongExtra("eventAt", 0L)
 
+        // RTC_WAKEUP wakes the CPU for delivery, but a short partial wakelock
+        // keeps the receiver/TTS alive reliably on locked/dozing devices.
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "LifeAlarm:AlarmReceiver"
+        )
+        runCatching { wakeLock.acquire(3L * 60L * 1000L) }
+
         // Master OFF is the final safety gate. Do not show notification, speak,
         // or reschedule anything even if an already-delivered PendingIntent fires.
         val prefs = AlarmPrefs(context)
@@ -43,6 +53,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                     .cancel(id)
             }
+            runCatching { if (wakeLock.isHeld) wakeLock.release() }
             return
         }
 
@@ -50,8 +61,15 @@ class AlarmReceiver : BroadcastReceiver() {
             "life_alarm_fired_events", Context.MODE_PRIVATE
         )
         val firedKey = "fired_$id"
-        if (eventAt > 0L && firedPrefs.getLong(firedKey, -1L) == eventAt) return
+        if (eventAt > 0L && firedPrefs.getLong(firedKey, -1L) == eventAt) {
+            runCatching { if (wakeLock.isHeld) wakeLock.release() }
+            return
+        }
         if (eventAt > 0L) firedPrefs.edit().putLong(firedKey, eventAt).apply()
+
+        // Consume only after the duplicate guard. This prevents a late duplicate
+        // broadcast from cancelling the newly scheduled next event.
+        AlarmScheduler(context.applicationContext).markDelivered(id)
 
         val isGuidanceNotification = id == 2 || id == 121 || id == 122 || id == 213
 
@@ -75,10 +93,13 @@ class AlarmReceiver : BroadcastReceiver() {
                         else -> AaradhanaMaster.forKarana(p.karana).mantra
                     }
                     val ap = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext)
-                    AaradhanaVoiceSession.speakRepeated(appContext, id, mantra, ap.specialJapaCount, pendingResult)
+                    AaradhanaVoiceSession.speakRepeated(appContext, id, mantra, ap.specialJapaCount, pendingResult) {
+                        runCatching { if (wakeLock.isHeld) wakeLock.release() }
+                    }
                 } catch (t: Throwable) {
                     android.util.Log.e("LifeAlarm", "Aaradhana voice failed", t)
                     pendingResult.finish()
+                    runCatching { if (wakeLock.isHeld) wakeLock.release() }
                 }
             }.start()
         } else if (id == 301) {
@@ -92,11 +113,17 @@ class AlarmReceiver : BroadcastReceiver() {
                         AaradhanaMaster.forNakshatra(moon.nakshatra.marathi).mantra,
                         AaradhanaMaster.forYoga(p.yoga).mantra,
                         AaradhanaMaster.forKarana(p.karana).mantra
-                    ), com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext).specialJapaCount, pendingResult)
-                    AlarmScheduler(appContext).scheduleAll()
+                    ), com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext).specialJapaCount, pendingResult) {
+                        // The current 301 event has already been consumed. Reconcile
+                        // immediately so the next interval is anchored to the saved
+                        // schedule rather than to every incidental scheduleAll() call.
+                        AlarmScheduler(appContext).scheduleAll()
+                        runCatching { if (wakeLock.isHeld) wakeLock.release() }
+                    }
                 } catch (t: Throwable) {
                     android.util.Log.e("LifeAlarm", "Special Aaradhana failed", t)
                     pendingResult.finish()
+                    runCatching { if (wakeLock.isHeld) wakeLock.release() }
                 }
             }.start()
         } else if (prefs.voiceAnnouncement) {
@@ -104,12 +131,18 @@ class AlarmReceiver : BroadcastReceiver() {
             val appContext = context.applicationContext
             Thread {
                 try {
-                    VoiceAnnouncement.speakEvent(appContext, id, message, eventAt, pendingResult)
+                    VoiceAnnouncement.speakEvent(appContext, id, message, eventAt, pendingResult) {
+                        runCatching { if (wakeLock.isHeld) wakeLock.release() }
+                    }
                 } catch (t: Throwable) {
                     android.util.Log.e("LifeAlarm", "Voice announcement failed", t)
                     pendingResult.finish()
+                    runCatching { if (wakeLock.isHeld) wakeLock.release() }
                 }
             }.start()
+        } else {
+            // No TTS work is pending.
+            runCatching { if (wakeLock.isHeld) wakeLock.release() }
         }
 
         if (id in 1..3 || id in 11..13 || id in 21..27 || id == 121 || id == 122 || id == 301) {
@@ -140,7 +173,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setBigContentTitle(title)
             .setSummaryText("जन्म नक्षत्र: ${profile.birthNakshatra}")
 
-        val channelId = "life_alarm_nakshatra_guidance_voice_v1"
+        val channelId = "life_alarm_nakshatra_guidance_voice_v2"
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -180,6 +213,9 @@ class AlarmReceiver : BroadcastReceiver() {
             .setStyle(bigText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setShowWhen(true)
+            .setWhen(if (eventAt > 0L) eventAt else System.currentTimeMillis())
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setDeleteIntent(deletePendingIntent)
@@ -190,7 +226,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun showNotification(context: Context, title: String, message: String, id: Int, eventAt: Long) {
-        val channelId = "life_alarm_voice_v1"
+        val channelId = "life_alarm_voice_v2"
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -215,12 +251,17 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(AaradhanaStopReceiver.EXTRA_ID, id)
         }
         val deletePendingIntent = PendingIntent.getBroadcast(context, 9000 + id, deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val fullText = "$message\nबदलाची वेळ: ${VoiceAnnouncement.formatEventTiming(eventAt)}$aaradhana"
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText("$message\nबदलाची वेळ: ${VoiceAnnouncement.formatEventTiming(eventAt)}$aaradhana")
+            .setContentText(fullText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(fullText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setShowWhen(true)
+            .setWhen(if (eventAt > 0L) eventAt else System.currentTimeMillis())
             .setAutoCancel(true)
             .setDeleteIntent(deletePendingIntent)
             .setSilent(true)
@@ -238,11 +279,13 @@ private object VoiceAnnouncement {
         id: Int,
         fallbackMessage: String,
         eventAt: Long,
-        pendingResult: BroadcastReceiver.PendingResult
+        pendingResult: BroadcastReceiver.PendingResult,
+        onFinished: (() -> Unit)? = null
     ) {
         val prefs = AlarmPrefs(context)
         if (!prefs.voiceAnnouncement) {
             pendingResult.finish()
+            onFinished?.invoke()
             return
         }
 
@@ -251,6 +294,7 @@ private object VoiceAnnouncement {
         tts = TextToSpeech(context) { status ->
             if (status != TextToSpeech.SUCCESS) {
                 pendingResult.finish()
+                onFinished?.invoke()
                 return@TextToSpeech
             }
 
@@ -294,11 +338,13 @@ private object VoiceAnnouncement {
                     music?.release()
                     tts.shutdown()
                     pendingResult.finish()
+                    onFinished?.invoke()
                 }
                 override fun onDone(utteranceId: String?) {
                     music?.release()
                     tts.shutdown()
                     pendingResult.finish()
+                    onFinished?.invoke()
                 }
             })
 

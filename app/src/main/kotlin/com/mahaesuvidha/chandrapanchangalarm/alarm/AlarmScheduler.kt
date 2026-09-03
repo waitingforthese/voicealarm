@@ -102,6 +102,12 @@ class AlarmScheduler(
     // ==========================================
 
     fun scheduleAll() {
+        synchronized(GLOBAL_SCHEDULE_LOCK) {
+            scheduleAllInternal()
+        }
+    }
+
+    private fun scheduleAllInternal() {
 
         val prefs = AlarmPrefs(context)
         if (!prefs.masterAlarm) {
@@ -263,21 +269,44 @@ class AlarmScheduler(
     }
 
     private fun scheduleSpecialAaradhana() {
-        val enabled = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext).specialHourly
-        if (!enabled) {
+        val ap = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext)
+        if (!ap.specialHourly) {
             cancel(301)
+            scheduledPrefs.edit().remove("special_next_at").remove("special_interval_hours").apply()
             return
         }
-        val intervalHours = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext).specialIntervalHours
-        val nextHour = System.currentTimeMillis() + intervalHours.toLong() * 60L * 60L * 1000L
+
+        val intervalHours = ap.specialIntervalHours
+        val now = System.currentTimeMillis()
+        val savedInterval = scheduledPrefs.getInt("special_interval_hours", -1)
+        var nextAt = scheduledPrefs.getLong("special_next_at", 0L)
+
+        // Preserve the existing countdown across unrelated scheduleAll() calls.
+        // If the user changes the interval, deliberately restart from now.
+        if (savedInterval != intervalHours || nextAt <= now + 2_000L) {
+            nextAt = now + intervalHours.toLong() * 60L * 60L * 1000L
+            scheduledPrefs.edit()
+                .putLong("special_next_at", nextAt)
+                .putInt("special_interval_hours", intervalHours)
+                .apply()
+        }
+
         reconcile(
             id = 301,
             enabled = true,
-            at = nextHour,
+            at = nextAt,
             title = "🕉️ विशेष आराधना",
             message = "नक्षत्र • योग • करण",
             soundResource = null
         )
+    }
+
+    /** Restart the special Aaradhana interval immediately after the user saves settings. */
+    fun resetSpecialAaradhanaSchedule() {
+        synchronized(GLOBAL_SCHEDULE_LOCK) {
+            scheduledPrefs.edit().remove("special_next_at").remove("special_interval_hours").apply()
+            cancel(301)
+        }
     }
 
     private fun scheduleNakshatraGuidanceAlarms() {
@@ -313,9 +342,11 @@ class AlarmScheduler(
         if (!guidancePrefs.nakshatraGuidanceEveryThreeHours) {
             cancel(122)
         } else {
-            val reminderAlreadyScheduled =
-                scheduledPrefs.getString("event_122", null) != null && isAlarmScheduled(122)
-            if (!reminderAlreadyScheduled) {
+            // ID 122 is a repeating 3-hour reminder. The receiver consumes
+            // the delivered event before calling scheduleAll(), so this
+            // alarm is always advanced to the next 3-hour slot.
+            val existing = scheduledPrefs.getString("event_122", null)
+            if (existing == null || !isAlarmScheduled(122)) {
                 val nextReminder = System.currentTimeMillis() + 3L * 60L * 60L * 1000L
                 reconcile(
                     id = 122,
@@ -483,14 +514,15 @@ class AlarmScheduler(
             Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                 alarmManager.canScheduleExactAlarms()
 
-        if (!exactAllowed && id != 99 && id !in 101..105) {
-            // Do not launch Settings from a BroadcastReceiver/background
-            // thread. The user can grant exact-alarm access from the app.
+        if (!exactAllowed) {
+            // Exact alarms are preferred, but a missing exact-alarm grant must
+            // never make a saved Life Alarm disappear. Fall back to an
+            // allow-while-idle alarm so the event is still delivered while
+            // the device is dozing/locked.
             android.util.Log.w(
                 "LifeAlarm",
-                "Exact alarm permission unavailable for id=$id"
+                "Exact alarm permission unavailable for id=$id; using inexact allow-while-idle fallback"
             )
-            return
         }
 
         cancel(id)
@@ -539,6 +571,21 @@ class AlarmScheduler(
         }
     }
 
+    /** Mark a one-shot alarm as consumed so scheduleAll() can create its next event. */
+    fun markDelivered(id: Int) {
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            id,
+            Intent(context, AlarmReceiver::class.java),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            runCatching { alarmManager.cancel(pendingIntent) }
+            runCatching { pendingIntent.cancel() }
+        }
+        scheduledPrefs.edit().remove("event_$id").apply()
+    }
+
     private fun isAlarmScheduled(id: Int): Boolean {
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -584,7 +631,7 @@ class AlarmScheduler(
         cancel(122)
         cancel(301)
 
-        for (id in 201..213) {
+        for (id in 201..216) {
             cancel(id)
         }
     }
@@ -629,5 +676,9 @@ class AlarmScheduler(
         scheduledPrefs.edit()
             .remove("event_$id")
             .apply()
+    }
+
+    companion object {
+        private val GLOBAL_SCHEDULE_LOCK = Any()
     }
 }

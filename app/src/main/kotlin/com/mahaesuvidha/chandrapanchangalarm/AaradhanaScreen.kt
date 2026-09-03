@@ -81,7 +81,9 @@ fun AaradhanaScreen(
                     Switch(checked = special, onCheckedChange = {
                         special = it
                         prefs.specialHourly = it
-                        AlarmScheduler(context.applicationContext).scheduleAll()
+                        val scheduler = AlarmScheduler(context.applicationContext)
+                        if (it) scheduler.resetSpecialAaradhanaSchedule()
+                        scheduler.scheduleAll()
                     })
                 }
 
@@ -149,8 +151,11 @@ fun AaradhanaScreen(
                     prefs.specialIntervalHours = hours
                     prefs.speechRate = speechRate
 
-                    // Reconcile the saved schedule immediately.
-                    AlarmScheduler(context.applicationContext).scheduleAll()
+                    // Saving interval settings intentionally starts a fresh countdown
+                    // from this save action; later scheduleAll() calls preserve it.
+                    val scheduler = AlarmScheduler(context.applicationContext)
+                    scheduler.resetSpecialAaradhanaSchedule()
+                    scheduler.scheduleAll()
 
                     // Immediately play the currently active Aaradhana so the user can
                     // verify count, pronunciation and speech speed without waiting for an alarm.

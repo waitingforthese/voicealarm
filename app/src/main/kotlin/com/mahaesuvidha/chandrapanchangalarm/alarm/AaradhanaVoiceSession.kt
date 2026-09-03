@@ -13,18 +13,22 @@ object AaradhanaVoiceSession {
     private var tts: TextToSpeech? = null
     private var sessionId: Int = -1
     private var pending: android.content.BroadcastReceiver.PendingResult? = null
+    private var finishedCallback: (() -> Unit)? = null
 
     @Synchronized
     fun stop(id: Int? = null) {
         if (id != null && sessionId != id) return
         val oldTts = tts
         val oldPending = pending
+        val oldCallback = finishedCallback
         tts = null
         pending = null
+        finishedCallback = null
         sessionId = -1
         runCatching { oldTts?.stop() }
         runCatching { oldTts?.shutdown() }
         runCatching { oldPending?.finish() }
+        runCatching { oldCallback?.invoke() }
     }
 
     fun speakRepeated(
@@ -32,16 +36,18 @@ object AaradhanaVoiceSession {
         id: Int,
         mantra: String,
         count: Int,
-        result: android.content.BroadcastReceiver.PendingResult
-    ) = start(context, id, listOf(mantra), count, result)
+        result: android.content.BroadcastReceiver.PendingResult,
+        onFinished: (() -> Unit)? = null
+    ) = start(context, id, listOf(mantra), count, result, onFinished)
 
     fun speakSequence(
         context: Context,
         id: Int,
         mantras: List<String>,
         eachCount: Int,
-        result: android.content.BroadcastReceiver.PendingResult
-    ) = start(context, id, mantras, eachCount, result)
+        result: android.content.BroadcastReceiver.PendingResult,
+        onFinished: (() -> Unit)? = null
+    ) = start(context, id, mantras, eachCount, result, onFinished)
 
     /** Immediate user-requested preview. It is not an alarm and therefore is allowed even when Master Alarm is OFF. */
     fun speakPreview(
@@ -49,18 +55,20 @@ object AaradhanaVoiceSession {
         id: Int,
         mantras: List<String>,
         eachCount: Int
-    ) = start(context, id, mantras, eachCount, null)
+    ) = start(context, id, mantras, eachCount, null, null)
 
     private fun start(
         context: Context,
         id: Int,
         mantras: List<String>,
         eachCount: Int,
-        result: android.content.BroadcastReceiver.PendingResult?
+        result: android.content.BroadcastReceiver.PendingResult?,
+        onFinished: (() -> Unit)?
     ) {
         stop()
         sessionId = id
         pending = result
+        finishedCallback = onFinished
         val app = context.applicationContext
         val prefs = AlarmPrefs(app)
         lateinit var engine: TextToSpeech
