@@ -92,6 +92,29 @@ object BirthProfileStore {
             .edit().remove(KEY_ACTIVE_ID).apply()
     }
 
+    /** Update an existing saved profile while preserving its identity when possible. */
+    fun update(context: Context, oldProfile: BirthProfile, newProfile: BirthProfile) {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val list = loadAllInternal(p).toMutableList()
+        val index = list.indexOfFirst { samePerson(it, oldProfile) }
+        if (index < 0) { save(context, newProfile); return }
+        list[index] = newProfile
+        val activeId = p.getString(KEY_ACTIVE_ID, null)
+        val oldId = profileId(oldProfile)
+        val edit = p.edit().putString(KEY_PROFILES, encode(list))
+        if (activeId == oldId) {
+            edit.putString(KEY_ACTIVE_ID, profileId(newProfile))
+                .putString(KEY_NAME, newProfile.name)
+                .putString(KEY_DATE, newProfile.birthDate)
+                .putString(KEY_GENDER, newProfile.gender)
+                .putString(KEY_TIME, newProfile.birthTime)
+                .putString(KEY_PLACE, newProfile.birthPlace)
+                .putString(KEY_MOON_RASHI, newProfile.birthMoonRashi)
+                .putString(KEY_NAKSHATRA, newProfile.birthNakshatra)
+        }
+        edit.apply()
+    }
+
     /** Explicitly remove one saved profile if the user later chooses to delete it. */
     fun remove(context: Context, profile: BirthProfile) {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -99,6 +122,10 @@ object BirthProfileStore {
         val activeId = p.getString(KEY_ACTIVE_ID, null)
         val edit = p.edit().putString(KEY_PROFILES, encode(remaining))
         if (activeId == profileId(profile)) edit.remove(KEY_ACTIVE_ID)
+        if (remaining.isEmpty()) {
+            edit.remove(KEY_NAME).remove(KEY_DATE).remove(KEY_GENDER).remove(KEY_TIME)
+                .remove(KEY_PLACE).remove(KEY_MOON_RASHI).remove(KEY_NAKSHATRA)
+        }
         edit.apply()
     }
 

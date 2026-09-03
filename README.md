@@ -23,3 +23,6 @@ Daund, Maharashtra — 17-Aug-2026 — Cancer -> Leo — 4:19 PM.
 
 ## Open in Android Studio
 Open this folder as a Gradle project.
+
+## Master Alarm Switch V1
+Home screen now has a master alarm ON/OFF switch beside Settings. OFF cancels all scheduled Life Alarm alarms, clears current notifications, and stops active Aaradhana voice. Individual alarm preferences are preserved and restored when the master is turned ON.

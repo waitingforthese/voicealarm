@@ -22,7 +22,11 @@ class BootReceiver : BroadcastReceiver() {
 
         Thread {
             try {
-                AlarmScheduler(appContext).scheduleAll()
+                if (com.mahaesuvidha.chandrapanchangalarm.settings.AlarmPrefs(appContext).masterAlarm) {
+                    AlarmScheduler(appContext).scheduleAll()
+                } else {
+                    AlarmScheduler(appContext).cancelAll()
+                }
             } catch (t: Throwable) {
                 android.util.Log.e(
                     "LifeAlarm",

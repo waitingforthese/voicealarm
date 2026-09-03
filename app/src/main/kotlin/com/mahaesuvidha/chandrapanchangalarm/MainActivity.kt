@@ -287,7 +287,18 @@ private fun AppRoot(
             onTestCharan = onTestCharan,
             onTestPanchang = onTestPanchang,
             onTestAllVoice = onTestAllVoice,
-            onCancelTests = onCancelTests
+            onCancelTests = onCancelTests,
+            onUserSelected = { selected ->
+                BirthProfileStore.activate(context.applicationContext, selected)
+                profile = selected
+                Thread { runCatching { AlarmScheduler(context.applicationContext).scheduleAll() } }.start()
+            },
+            onUserEdited = { old, updated ->
+                if (old.name == profile!!.name && old.birthDate == profile!!.birthDate && old.birthTime == profile!!.birthTime && old.birthPlace == profile!!.birthPlace) {
+                    profile = updated
+                    Thread { runCatching { AlarmScheduler(context.applicationContext).scheduleAll() } }.start()
+                }
+            }
         )
     }
 }
@@ -528,7 +539,11 @@ private fun ChandraSuryaHome(
 
     onTestAllVoice: () -> Unit,
 
-    onCancelTests: () -> Unit
+    onCancelTests: () -> Unit,
+
+    onUserSelected: (BirthProfile) -> Unit,
+
+    onUserEdited: (BirthProfile, BirthProfile) -> Unit
 
 ) {
 
@@ -799,6 +814,8 @@ LaunchedEffect(calculationLocationVersion, refreshRequest) {
         onTestPanchang = onTestPanchang,
         onTestAllVoice = onTestAllVoice,
         onCancelTests = onCancelTests,
+        onUserSelected = onUserSelected,
+        onUserEdited = onUserEdited,
         liveLocation = liveLocation,
         isRefreshing = isRefreshing,
         lastRefreshMillis = lastRefreshMillis,
@@ -869,6 +886,10 @@ private fun ChandraSuryaHomeContent(
 
     onCancelTests: () -> Unit,
 
+    onUserSelected: (BirthProfile) -> Unit,
+
+    onUserEdited: (BirthProfile, BirthProfile) -> Unit,
+
     liveLocation: String,
 
     isRefreshing: Boolean,
@@ -905,6 +926,58 @@ private fun ChandraSuryaHomeContent(
 
     var showGuidance by remember { mutableStateOf(false) }
     var showBadTara by remember { mutableStateOf(false) }
+    var showAaradhana by remember { mutableStateOf(false) }
+    var showGhatChakra by remember { mutableStateOf(false) }
+    var showTodayPrediction by remember { mutableStateOf(false) }
+    var showFramework by remember { mutableStateOf(false) }
+    var showUserManager by remember { mutableStateOf(false) }
+
+    if (showFramework) {
+        BackHandler { showFramework = false }
+        FrameworkScreen(profile = profile, onBack = { showFramework = false })
+        return
+    }
+
+    if (showUserManager) {
+        BackHandler { showUserManager = false }
+        UserManagerScreen(
+            onBack = { showUserManager = false },
+            onEdited = { old, updated ->
+                onUserEdited(old, updated)
+            },
+            onSelect = { selected ->
+                onUserSelected(selected)
+                showUserManager = false
+            }
+        )
+        return
+    }
+
+    if (showTodayPrediction) {
+        BackHandler { showTodayPrediction = false }
+        TodayPredictionScreen(
+            profile = profile,
+            moonState = moonState,
+            onBack = { showTodayPrediction = false }
+        )
+        return
+    }
+
+    if (showAaradhana) {
+        BackHandler { showAaradhana = false }
+        AaradhanaScreen(
+            profile = profile,
+            panchang = panchangState,
+            onBack = { showAaradhana = false }
+        )
+        return
+    }
+
+    if (showGhatChakra) {
+        BackHandler { showGhatChakra = false }
+        GhatChakraScreen(ghatChakra = ghatChakra, gender = profile.gender, onBack = { showGhatChakra = false })
+        return
+    }
 
     if (showBadTara) {
         BackHandler { showBadTara = false }
@@ -927,6 +1000,25 @@ private fun ChandraSuryaHomeContent(
     var showSettings by remember {
 
         mutableStateOf(false)
+    }
+
+    var masterAlarmOn by remember { mutableStateOf(alarmPrefs.masterAlarm) }
+
+    fun setMasterAlarm(enabled: Boolean) {
+        masterAlarmOn = enabled
+        alarmPrefs.masterAlarm = enabled
+        if (enabled) {
+            Thread {
+                runCatching { AlarmScheduler(context.applicationContext).scheduleAll() }
+                    .onFailure { t -> android.util.Log.e("LifeAlarm", "Failed to restore alarms after master ON", t) }
+            }.start()
+        } else {
+            runCatching { AlarmScheduler(context.applicationContext).cancelAll() }
+            runCatching {
+                (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancelAll()
+            }
+            runCatching { com.mahaesuvidha.chandrapanchangalarm.alarm.AaradhanaVoiceSession.stop() }
+        }
     }
 
 
@@ -974,137 +1066,63 @@ private fun ChandraSuryaHomeContent(
             Modifier.height(6.dp)
         )
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A))
-        ) {
+        // APP HEADER — app name first; alarm settings remain in the top-right corner.
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("🌙", fontSize = 38.sp)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Life Alarm", color = white, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text("LIVE • AUTO • ACCURATE", color = Color.LightGray, fontSize = 11.sp)
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "🔔",
+                    fontSize = 22.sp,
+                    modifier = Modifier.clickable { setMasterAlarm(!masterAlarmOn) }
+                )
+                Switch(
+                    checked = masterAlarmOn,
+                    onCheckedChange = { setMasterAlarm(it) }
+                )
+                Text(
+                    if (masterAlarmOn) "ON" else "OFF",
+                    color = if (masterAlarmOn) Color(0xFF66BB6A) else Color(0xFFFF7777),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text("⚙️", fontSize = 25.sp, modifier = Modifier.clickable { showSettings = true })
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        // ACTIVE USER INFORMATION
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A))) {
             Column(Modifier.padding(12.dp)) {
                 Text("👤 ${profile.name}", color = white, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text("जन्म: ${profile.birthDate} • ${profile.birthTime} • ${profile.birthPlace}", color = Color.LightGray, fontSize = 11.sp)
                 Text("जन्म चंद्र राशी: ${profile.birthMoonRashi}", color = moonBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("घात चक्र: ${ghatChakra.birthRashi}", color = Color(0xFFFF7777), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("जन्म नक्षत्र: ${profile.birthNakshatra}", color = Color(0xFFFFC83D), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
+
+        Spacer(Modifier.height(10.dp))
+
+        // MAIN FEATURE BUTTONS — one below another. Each button opens its own screen/settings.
+        FeatureNavigationButton("⭐ नक्षत्र मार्गदर्शन", "मार्गदर्शन + त्याची ३ तासांची सेटिंग", Color(0xFFFFC83D)) { showGuidance = true }
+        FeatureNavigationButton("🕉️ नक्षत्र आराधना", "बदलाची आराधना + विशेष आराधना सेटिंग", Color(0xFFFFC83D)) { showAaradhana = true }
+        FeatureNavigationButton("⚠️ घट चक्र", "जन्म चंद्र राशीनुसार घट चक्र", Color(0xFFFF7777)) { showGhatChakra = true }
+        FeatureNavigationButton("🔮 आजचे भाकीत", "चंद्र कुंडलीवर आधारित गोचर भाकीत", Color(0xFF7C4DFF)) { showTodayPrediction = true }
+        FeatureNavigationButton("🧠 Framework", "Medical • Business • Educational • Vastushastra", Color(0xFF4DA3FF)) { showFramework = true }
+        FeatureNavigationButton("👥 User व्यवस्थापन", "User बदलणे • Edit • Delete", Color(0xFF66BB6A)) { showUserManager = true }
+        FeatureNavigationButton("🔴 विपत / प्रत्यारी / वध आगामी", "आगामी अशुभ तारांचा स्वतंत्र आढावा", Color(0xFFE53935)) { showBadTara = true }
 
         Spacer(Modifier.height(8.dp))
 
-        Text(
-            text = liveLocation,
-            color = Color.LightGray,
-            fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedButton(
-            onClick = { showGuidance = true },
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFFC83D))
-        ) {
-            Text("⭐ नक्षत्र मार्गदर्शन", fontWeight = FontWeight.Bold)
-        }
-        OutlinedButton(
-            onClick = { showBadTara = true },
-            modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935))
-        ) {
-            Text("🔴 विपत / प्रत्यारी / वध आगामी", fontWeight = FontWeight.Bold)
-        }
-
-
-        // HEADER
-
-        Row(
-
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        vertical = 8.dp
-                    ),
-
-            verticalAlignment =
-                Alignment.CenterVertically
-
-        ) {
-
-            Text(
-
-                text = "🌙",
-
-                fontSize =
-                    38.sp
-            )
-
-
-            Spacer(
-
-                modifier =
-                    Modifier.width(
-                        8.dp
-                    )
-            )
-
-
-            Column(
-
-                modifier =
-                    Modifier.weight(
-                        1f
-                    )
-
-            ) {
-
-                Text(
-
-                    text =
-                        "Life Alarm",
-
-                    color =
-                        white,
-
-                    fontSize =
-                        23.sp,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-
-                Text(
-
-                    text =
-                        "LIVE • AUTO • ACCURATE",
-
-                    color =
-                        Color.LightGray,
-
-                    fontSize =
-                        11.sp
-                )
-            }
-
-
-            Text(
-
-                text =
-                    "⚙️",
-
-                fontSize =
-                    25.sp,
-
-                modifier =
-                    Modifier.clickable {
-
-                        showSettings =
-                            true
-                    }
-            )
-        }
-
-
+        Text(text = liveLocation, color = Color.LightGray, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
 
         // LOCATION
 
@@ -1319,15 +1337,6 @@ private fun ChandraSuryaHomeContent(
         )
 
 
-
-        // PERSONAL GHAT CHAKRA
-
-        GhatChakraCard(
-            ghat = ghatChakra,
-            gender = profile.gender
-        )
-
-        Spacer(Modifier.height(12.dp))
 
         // PANCHANG CARD
 
@@ -2212,6 +2221,37 @@ private fun currentTithiNumber(state: PanchangState): Int {
 
 
 @Composable
+private fun FeatureNavigationButton(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.55f))
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = Color.LightGray, fontSize = 11.sp)
+            }
+            Text("›", color = accent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun GhatChakraScreen(ghatChakra: GhatChakra, gender: String, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    Column(Modifier.fillMaxSize().background(Color(0xFF07111F)).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
+            Text("⚠️ घट चक्र", color = Color(0xFFFF7777), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(6.dp))
+        GhatChakraCard(ghat = ghatChakra, gender = gender)
+    }
+}
+
+@Composable
 private fun GhatChakraCard(ghat: GhatChakra, gender: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -2219,7 +2259,7 @@ private fun GhatChakraCard(ghat: GhatChakra, gender: String) {
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A1015))
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text("⚠️ माझे घात चक्र", color = Color(0xFFFF7777), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("⚠️ माझे घट चक्र", color = Color(0xFFFF7777), fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text("जन्म चंद्र राशी: ${ghat.birthRashi}", color = Color.White, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
             val rows = listOf(
@@ -2441,6 +2481,9 @@ private fun NakshatraGuidanceScreen(
     val bg = Color(0xFF07111F)
     val card = Color(0xFF10253A)
     val white = Color(0xFFF5F7FA)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val guidancePrefs = remember { AlarmPrefs(context.applicationContext) }
+    var guidanceEveryThreeHours by remember { mutableStateOf(guidancePrefs.nakshatraGuidanceEveryThreeHours) }
 
     Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -2452,6 +2495,20 @@ private fun NakshatraGuidanceScreen(
             Column(Modifier.padding(14.dp)) {
                 Text("जन्म नक्षत्र", color = Color.LightGray, fontSize = 13.sp)
                 Text(if (birthNakshatra.isBlank()) "—" else birthNakshatra, color = Color(0xFF4DA3FF), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("⚙️ नक्षत्र मार्गदर्शन सेटिंग", color = white, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("दर ३ तासांनी सूचना आणि Voice", color = Color.LightGray, fontSize = 11.sp)
+                }
+                Switch(checked = guidanceEveryThreeHours, onCheckedChange = {
+                    guidanceEveryThreeHours = it
+                    guidancePrefs.nakshatraGuidanceEveryThreeHours = it
+                    Thread { runCatching { AlarmScheduler(context.applicationContext).scheduleAll() } }.start()
+                })
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -2661,31 +2718,6 @@ private fun SettingsDialog(
                     color = Color.DarkGray
                 )
 
-                Spacer(Modifier.height(10.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(10.dp))
-                Text("🌙 नक्षत्र मार्गदर्शन", fontWeight = FontWeight.Bold)
-                Text(
-                    "नक्षत्र मार्गदर्शनाची सूचना प्रत्येक ३ तासांनी येईल.",
-                    fontSize = 12.sp,
-                    color = Color.DarkGray
-                )
-                SwitchRow("दर ३ तासांनी नक्षत्र मार्गदर्शन", nakshatraGuidanceEveryThreeHours) {
-                    nakshatraGuidanceEveryThreeHours = it
-                    prefs.nakshatraGuidanceEveryThreeHours = it
-                }
-                Text(
-                    if (nakshatraGuidanceEveryThreeHours)
-                        "ON: दर ३ तासांनी नक्षत्र मार्गदर्शनाची Notification आणि Voice येईल."
-                    else
-                        "OFF: दर ३ तासांची नक्षत्र मार्गदर्शन सूचना बंद आहे.",
-                    fontSize = 12.sp,
-                    color = Color.DarkGray
-                )
-
-                Spacer(Modifier.height(14.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(10.dp))
                 Text("👤 ${profile.name}", fontWeight = FontWeight.Bold)
                 Text("जन्म चंद्र राशी: ${profile.birthMoonRashi}", fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))

@@ -17,6 +17,7 @@ import com.mahaesuvidha.chandrapanchangalarm.model.LiveMoonCalculator
 import com.mahaesuvidha.chandrapanchangalarm.model.LivePanchangCalculator
 import com.mahaesuvidha.chandrapanchangalarm.model.LiveSunCalculator
 import com.mahaesuvidha.chandrapanchangalarm.model.NakshatraGuidanceCalculator
+import com.mahaesuvidha.chandrapanchangalarm.model.AaradhanaMaster
 import com.mahaesuvidha.chandrapanchangalarm.settings.AlarmPrefs
 import com.mahaesuvidha.chandrapanchangalarm.settings.LocationPrefs
 import java.text.SimpleDateFormat
@@ -33,6 +34,18 @@ class AlarmReceiver : BroadcastReceiver() {
         val id = intent.getIntExtra("id", 1)
         val eventAt = intent.getLongExtra("eventAt", 0L)
 
+        // Master OFF is the final safety gate. Do not show notification, speak,
+        // or reschedule anything even if an already-delivered PendingIntent fires.
+        val prefs = AlarmPrefs(context)
+        if (!prefs.masterAlarm) {
+            runCatching { AaradhanaVoiceSession.stop() }
+            runCatching {
+                (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                    .cancel(id)
+            }
+            return
+        }
+
         val firedPrefs = context.getSharedPreferences(
             "life_alarm_fired_events", Context.MODE_PRIVATE
         )
@@ -41,7 +54,6 @@ class AlarmReceiver : BroadcastReceiver() {
         if (eventAt > 0L) firedPrefs.edit().putLong(firedKey, eventAt).apply()
 
         val isGuidanceNotification = id == 2 || id == 121 || id == 122 || id == 213
-        val prefs = AlarmPrefs(context)
 
         if (isGuidanceNotification) {
             showNakshatraGuidanceNotification(context, id, eventAt)
@@ -49,7 +61,45 @@ class AlarmReceiver : BroadcastReceiver() {
             showNotification(context, title, message, id, eventAt)
         }
 
-        if (prefs.voiceAnnouncement) {
+        val aaradhanaChange = id == 2 || id == 22 || id == 23
+        if (aaradhanaChange) {
+            val pendingResult = goAsync()
+            val appContext = context.applicationContext
+            Thread {
+                try {
+                    val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(appContext).latitude, LocationPrefs(appContext).longitude)
+                    val moon = LiveMoonCalculator.getCurrentMoonState()
+                    val mantra = when (id) {
+                        2 -> AaradhanaMaster.forNakshatra(moon.nakshatra.marathi).mantra
+                        22 -> AaradhanaMaster.forYoga(p.yoga).mantra
+                        else -> AaradhanaMaster.forKarana(p.karana).mantra
+                    }
+                    val ap = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext)
+                    AaradhanaVoiceSession.speakRepeated(appContext, id, mantra, ap.specialJapaCount, pendingResult)
+                } catch (t: Throwable) {
+                    android.util.Log.e("LifeAlarm", "Aaradhana voice failed", t)
+                    pendingResult.finish()
+                }
+            }.start()
+        } else if (id == 301) {
+            val pendingResult = goAsync()
+            val appContext = context.applicationContext
+            Thread {
+                try {
+                    val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(appContext).latitude, LocationPrefs(appContext).longitude)
+                    val moon = LiveMoonCalculator.getCurrentMoonState()
+                    AaradhanaVoiceSession.speakSequence(appContext, id, listOf(
+                        AaradhanaMaster.forNakshatra(moon.nakshatra.marathi).mantra,
+                        AaradhanaMaster.forYoga(p.yoga).mantra,
+                        AaradhanaMaster.forKarana(p.karana).mantra
+                    ), com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext).specialJapaCount, pendingResult)
+                    AlarmScheduler(appContext).scheduleAll()
+                } catch (t: Throwable) {
+                    android.util.Log.e("LifeAlarm", "Special Aaradhana failed", t)
+                    pendingResult.finish()
+                }
+            }.start()
+        } else if (prefs.voiceAnnouncement) {
             val pendingResult = goAsync()
             val appContext = context.applicationContext
             Thread {
@@ -62,7 +112,7 @@ class AlarmReceiver : BroadcastReceiver() {
             }.start()
         }
 
-        if (id in 1..3 || id in 11..13 || id in 21..27 || id == 121 || id == 122) {
+        if (id in 1..3 || id in 11..13 || id in 21..27 || id == 121 || id == 122 || id == 301) {
             Thread {
                 try {
                     AlarmScheduler(context.applicationContext).scheduleAll()
@@ -114,6 +164,15 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val deleteIntent = Intent(context, AaradhanaStopReceiver::class.java).apply {
+            action = AaradhanaStopReceiver.ACTION_STOP
+            putExtra(AaradhanaStopReceiver.EXTRA_ID, id)
+        }
+        val deletePendingIntent = PendingIntent.getBroadcast(
+            context, 9000 + id, deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
@@ -123,6 +182,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
+            .setDeleteIntent(deletePendingIntent)
             .setSilent(true)
             .build()
 
@@ -144,13 +204,25 @@ class AlarmReceiver : BroadcastReceiver() {
             notificationManager.createNotificationChannel(channel)
         }
 
+        val aaradhana = when (id) {
+            2 -> { val s = LiveMoonCalculator.getCurrentMoonState(); val a = AaradhanaMaster.forNakshatra(s.nakshatra.marathi); "\n🙏 अधिदेवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
+            22 -> { val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(context).latitude, LocationPrefs(context).longitude); val a = AaradhanaMaster.forYoga(p.yoga); "\n🙏 अधिदेवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
+            23 -> { val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(context).latitude, LocationPrefs(context).longitude); val a = AaradhanaMaster.forKarana(p.karana); "\n🙏 अधिदेवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
+            else -> ""
+        }
+        val deleteIntent = Intent(context, AaradhanaStopReceiver::class.java).apply {
+            action = AaradhanaStopReceiver.ACTION_STOP
+            putExtra(AaradhanaStopReceiver.EXTRA_ID, id)
+        }
+        val deletePendingIntent = PendingIntent.getBroadcast(context, 9000 + id, deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText("$message\nबदलाची वेळ: ${VoiceAnnouncement.formatEventTiming(eventAt)}")
+            .setContentText("$message\nबदलाची वेळ: ${VoiceAnnouncement.formatEventTiming(eventAt)}$aaradhana")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
+            .setDeleteIntent(deletePendingIntent)
             .setSilent(true)
             .build()
 

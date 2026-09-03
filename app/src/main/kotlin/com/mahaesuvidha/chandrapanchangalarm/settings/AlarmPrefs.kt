@@ -13,6 +13,17 @@ class AlarmPrefs(
         )
 
     // ==========================================
+    // MASTER ALARM SWITCH
+    // ==========================================
+
+    /** Master switch for every Life Alarm/notification/voice alarm.
+     * Individual alarm preferences are preserved while the master is OFF.
+     */
+    var masterAlarm: Boolean
+        get() = p.getBoolean("master_alarm", true)
+        set(value) { p.edit().putBoolean("master_alarm", value).apply() }
+
+    // ==========================================
     // MOON / SUN
     // ==========================================
 

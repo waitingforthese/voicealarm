@@ -104,7 +104,14 @@ class AlarmScheduler(
     fun scheduleAll() {
 
         val prefs = AlarmPrefs(context)
+        if (!prefs.masterAlarm) {
+            // Master OFF means absolutely no Life Alarm should remain scheduled.
+            cancelAll()
+            return
+        }
         val location = LocationPrefs(context)
+
+        scheduleSpecialAaradhana()
 
         // Personalized Nakshatra Guidance: the change notification and the
         // 3-hour reminder use the same live Nakshatra/Tara-Bala calculation
@@ -253,6 +260,24 @@ class AlarmScheduler(
         } else {
             cancel(21); cancel(22); cancel(23); cancel(24); cancel(26); cancel(27)
         }
+    }
+
+    private fun scheduleSpecialAaradhana() {
+        val enabled = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext).specialHourly
+        if (!enabled) {
+            cancel(301)
+            return
+        }
+        val intervalHours = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext).specialIntervalHours
+        val nextHour = System.currentTimeMillis() + intervalHours.toLong() * 60L * 60L * 1000L
+        reconcile(
+            id = 301,
+            enabled = true,
+            at = nextHour,
+            title = "🕉️ विशेष आराधना",
+            message = "नक्षत्र • योग • करण",
+            soundResource = null
+        )
     }
 
     private fun scheduleNakshatraGuidanceAlarms() {
@@ -432,6 +457,7 @@ class AlarmScheduler(
         cancel(105)
         cancel(121)
         cancel(122)
+        cancel(301)
         for (id in 201..216) cancel(id)
     }
 
@@ -556,6 +582,7 @@ class AlarmScheduler(
         cancel(105)
         cancel(121)
         cancel(122)
+        cancel(301)
 
         for (id in 201..213) {
             cancel(id)
