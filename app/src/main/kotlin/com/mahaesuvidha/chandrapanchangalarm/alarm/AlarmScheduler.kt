@@ -163,6 +163,26 @@ class AlarmScheduler(
             cancel(1); cancel(2); cancel(3)
         }
 
+        // Independent change-triggered Aaradhana alarms. These are deliberately
+        // separate from Notification Settings: disabling a notification must not
+        // disable its Aaradhana. IDs 131..133 are voice/notification Aaradhana only.
+        val aar = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext)
+        val moonNow = LiveMoonCalculator.getCurrentMoonState()
+        reconcile(131, aar.nakshatraChangeAaradhana, moonNow.nextNakshatraMillis,
+            "🕉️ नक्षत्र बदल आराधना", "नक्षत्र बदलानंतर आराधना", "nakshatra")
+
+        // Yoga/Karana require the live panchang calculation; calculate only when
+        // either independent Aaradhana is enabled.
+        if (aar.yogaChangeAaradhana || aar.karanaChangeAaradhana) {
+            val ap = LivePanchangCalculator.getCurrentPanchangState(location.latitude, location.longitude)
+            reconcile(132, aar.yogaChangeAaradhana, ap.nextYogaMillis,
+                "🕉️ योग बदल आराधना", "योग बदलानंतर आराधना", "yog_badal")
+            reconcile(133, aar.karanaChangeAaradhana, ap.nextKaranaMillis,
+                "🕉️ करण बदल आराधना", "करण बदलानंतर आराधना", "karan_badal")
+        } else {
+            cancel(132); cancel(133)
+        }
+
         // ==========================================
         // SUN ALARMS — IDs 11..13
         // ==========================================
@@ -270,42 +290,67 @@ class AlarmScheduler(
 
     private fun scheduleSpecialAaradhana() {
         val ap = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext)
-        if (!ap.specialHourly) {
-            cancel(301)
-            scheduledPrefs.edit().remove("special_next_at").remove("special_interval_hours").apply()
+        val fixedTimes = parseFixedTimes(ap.specialFixedTimes)
+        if (!ap.specialHourly || fixedTimes.isEmpty()) {
+            for (id in 301..308) cancel(id)
+            scheduledPrefs.edit().remove("special_fixed_signature").apply()
             return
         }
 
-        val intervalHours = ap.specialIntervalHours
-        val now = System.currentTimeMillis()
-        val savedInterval = scheduledPrefs.getInt("special_interval_hours", -1)
-        var nextAt = scheduledPrefs.getLong("special_next_at", 0L)
-
-        // Preserve the existing countdown across unrelated scheduleAll() calls.
-        // If the user changes the interval, deliberately restart from now.
-        if (savedInterval != intervalHours || nextAt <= now + 2_000L) {
-            nextAt = now + intervalHours.toLong() * 60L * 60L * 1000L
-            scheduledPrefs.edit()
-                .putLong("special_next_at", nextAt)
-                .putInt("special_interval_hours", intervalHours)
-                .apply()
+        val signature = fixedTimes.joinToString(",")
+        val oldSignature = scheduledPrefs.getString("special_fixed_signature", null)
+        if (oldSignature != signature) {
+            for (id in 301..308) cancel(id)
+            scheduledPrefs.edit().putString("special_fixed_signature", signature).apply()
         }
 
-        reconcile(
-            id = 301,
-            enabled = true,
-            at = nextAt,
-            title = "🕉️ विशेष आराधना",
-            message = "नक्षत्र • योग • करण",
-            soundResource = null
-        )
+        val now = System.currentTimeMillis()
+        fixedTimes.forEachIndexed { index, hm ->
+            val id = 301 + index
+            val nextAt = nextDailyTimeMillis(hm.first, hm.second, now)
+            reconcile(
+                id = id,
+                enabled = true,
+                at = nextAt,
+                title = "🕉️ नक्षत्र आराधना • ${hm.first.toString().padStart(2, '0')}:${hm.second.toString().padStart(2, '0')}",
+                message = "सध्याचे नक्षत्र • योग • करण आराधना",
+                soundResource = null
+            )
+        }
+        for (index in fixedTimes.size until 8) cancel(301 + index)
+    }
+
+    private fun parseFixedTimes(raw: String): List<Pair<Int, Int>> {
+        return raw.split(',')
+            .mapNotNull { token ->
+                val parts = token.trim().split(':')
+                if (parts.size != 2) return@mapNotNull null
+                val h = parts[0].toIntOrNull() ?: return@mapNotNull null
+                val m = parts[1].toIntOrNull() ?: return@mapNotNull null
+                if (h !in 0..23 || m !in 0..59) null else h to m
+            }
+            .distinct()
+            .sortedWith(compareBy<Pair<Int, Int>> { it.first }.thenBy { it.second })
+            .take(8)
+    }
+
+    private fun nextDailyTimeMillis(hour: Int, minute: Int, now: Long): Long {
+        val cal = java.util.Calendar.getInstance().apply {
+            timeInMillis = now
+            set(java.util.Calendar.HOUR_OF_DAY, hour)
+            set(java.util.Calendar.MINUTE, minute)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        if (cal.timeInMillis <= now + 1_000L) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        return cal.timeInMillis
     }
 
     /** Restart the special Aaradhana interval immediately after the user saves settings. */
     fun resetSpecialAaradhanaSchedule() {
         synchronized(GLOBAL_SCHEDULE_LOCK) {
             scheduledPrefs.edit().remove("special_next_at").remove("special_interval_hours").apply()
-            cancel(301)
+            for (id in 301..308) cancel(id)
         }
     }
 
@@ -427,6 +472,21 @@ class AlarmScheduler(
 
     // ==========================================
     // ==========================================
+    // IMMEDIATE NOTIFICATION TEST
+    // ==========================================
+
+    /** Posts a notification immediately through AlarmReceiver, without waiting for an astronomical event. */
+    fun scheduleImmediateNotificationTest() {
+        schedule(
+            id = 98,
+            at = System.currentTimeMillis() + 2_000L,
+            title = "🔔 Life Alarm Notification Test",
+            message = "ही तात्काळ Notification चाचणी आहे. Notification दिसली आणि आवाज आला तर system ठीक आहे.",
+            soundResource = null
+        )
+    }
+
+    // ==========================================
     // FULL VOICE / NOTIFICATION TEST
     // ==========================================
 
@@ -480,6 +540,7 @@ class AlarmScheduler(
 
     /** Cancels all temporary test alarms without touching real alarms. */
     fun cancelAllTestAlarms() {
+        cancel(98)
         cancel(99)
         cancel(101)
         cancel(102)
@@ -488,7 +549,7 @@ class AlarmScheduler(
         cancel(105)
         cancel(121)
         cancel(122)
-        cancel(301)
+        for (id in 301..308) cancel(id)
         for (id in 201..216) cancel(id)
     }
 
@@ -619,6 +680,7 @@ class AlarmScheduler(
         for (id in 21..27) {
             cancel(id)
         }
+        for (id in 131..133) cancel(id)
 
         // Test alarms
         cancel(99)

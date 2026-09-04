@@ -1,7 +1,10 @@
 package com.mahaesuvidha.chandrapanchangalarm
 
 import android.Manifest
+import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.Notification
+import android.media.AudioAttributes
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -158,6 +161,54 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    private fun ensureNotificationPermissionAndChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val nm = getSystemService(NotificationManager::class.java)
+            val soundUri = android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            val general = NotificationChannel(
+                "life_alarm_voice_v3",
+                "Life Alarm Voice",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Life Alarm notification and voice announcements"
+                enableVibration(true)
+                setSound(soundUri, attrs)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            val guidance = NotificationChannel(
+                "life_alarm_nakshatra_guidance_voice_v3",
+                "नक्षत्र मार्गदर्शन",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "चालू नक्षत्र, तारा, काय करावे आणि काय टाळावे"
+                enableVibration(true)
+                setSound(soundUri, attrs)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            nm.createNotificationChannels(listOf(general, guidance))
+        }
+
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::scheduler.isInitialized) {
+            Thread {
+                runCatching { scheduler.scheduleAll() }
+            }.start()
+        }
+    }
+
     override fun onCreate(
         savedInstanceState: Bundle?
     ) {
@@ -170,21 +221,19 @@ class MainActivity : ComponentActivity() {
             AlarmScheduler(this)
 
 
-        // Ask for startup/background permissions only once after installation.
-        // The completion flag is persisted so reopening the app does not launch
-        // the permission/battery-optimization flow again. Users can change these
-        // permissions later from Android Settings.
+        // Notification permission must be checked on every app launch. The
+        // previous one-time startup flag could permanently leave notifications
+        // disabled after an earlier denial. Channels are also recreated with a
+        // fresh ID so their sound/importance is not inherited from an old silent
+        // channel.
+        ensureNotificationPermissionAndChannels()
+
+        // Location/battery optimization onboarding remains one-time.
         if (shouldRequestStartupPermissions()) {
-            if (
-                android.os.Build.VERSION.SDK_INT >= 33 &&
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) {
-                notificationPermission.launch(
-                    Manifest.permission.POST_NOTIFICATIONS
-                )
+                // The notification permission callback continues the startup flow.
             } else {
                 requestLocationPermissionIfNeeded()
             }

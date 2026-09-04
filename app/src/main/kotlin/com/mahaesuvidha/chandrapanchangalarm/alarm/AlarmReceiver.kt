@@ -79,7 +79,7 @@ class AlarmReceiver : BroadcastReceiver() {
             showNotification(context, title, message, id, eventAt)
         }
 
-        val aaradhanaChange = id == 2 || id == 22 || id == 23
+        val aaradhanaChange = id in 131..133
         if (aaradhanaChange) {
             val pendingResult = goAsync()
             val appContext = context.applicationContext
@@ -88,8 +88,8 @@ class AlarmReceiver : BroadcastReceiver() {
                     val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(appContext).latitude, LocationPrefs(appContext).longitude)
                     val moon = LiveMoonCalculator.getCurrentMoonState()
                     val mantra = when (id) {
-                        2 -> AaradhanaMaster.forNakshatra(moon.nakshatra.marathi).mantra
-                        22 -> AaradhanaMaster.forYoga(p.yoga).mantra
+                        2, 131 -> AaradhanaMaster.forNakshatra(moon.nakshatra.marathi).mantra
+                        22, 132 -> AaradhanaMaster.forYoga(p.yoga).mantra
                         else -> AaradhanaMaster.forKarana(p.karana).mantra
                     }
                     val ap = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext)
@@ -102,7 +102,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     runCatching { if (wakeLock.isHeld) wakeLock.release() }
                 }
             }.start()
-        } else if (id == 301) {
+        } else if (id in 301..308) {
             val pendingResult = goAsync()
             val appContext = context.applicationContext
             Thread {
@@ -145,7 +145,7 @@ class AlarmReceiver : BroadcastReceiver() {
             runCatching { if (wakeLock.isHeld) wakeLock.release() }
         }
 
-        if (id in 1..3 || id in 11..13 || id in 21..27 || id == 121 || id == 122 || id == 301) {
+        if (id in 1..3 || id in 11..13 || id in 21..27 || id == 121 || id == 122 || id in 131..133 || id in 301..308) {
             Thread {
                 try {
                     AlarmScheduler(context.applicationContext).scheduleAll()
@@ -173,7 +173,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setBigContentTitle(title)
             .setSummaryText("जन्म नक्षत्र: ${profile.birthNakshatra}")
 
-        val channelId = "life_alarm_nakshatra_guidance_voice_v2"
+        val channelId = "life_alarm_nakshatra_guidance_voice_v3"
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -183,7 +183,13 @@ class AlarmReceiver : BroadcastReceiver() {
             )
             channel.description = "चालू नक्षत्र, तारा, काय करावे आणि काय टाळावे"
             channel.enableVibration(true)
-            channel.setSound(null, null)
+            channel.setSound(
+                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
             notificationManager.createNotificationChannel(channel)
         }
 
@@ -219,14 +225,13 @@ class AlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setDeleteIntent(deletePendingIntent)
-            .setSilent(true)
             .build()
 
         notificationManager.notify(7000 + id, notification)
     }
 
     private fun showNotification(context: Context, title: String, message: String, id: Int, eventAt: Long) {
-        val channelId = "life_alarm_voice_v2"
+        val channelId = "life_alarm_voice_v3"
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -236,7 +241,13 @@ class AlarmReceiver : BroadcastReceiver() {
             )
             channel.description = "राशी, नक्षत्र, चरण आणि पंचांग बदलांसाठी Voice Announcement"
             channel.enableVibration(true)
-            channel.setSound(null, null)
+            channel.setSound(
+                android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
             notificationManager.createNotificationChannel(channel)
         }
 
@@ -264,7 +275,6 @@ class AlarmReceiver : BroadcastReceiver() {
             .setWhen(if (eventAt > 0L) eventAt else System.currentTimeMillis())
             .setAutoCancel(true)
             .setDeleteIntent(deletePendingIntent)
-            .setSilent(true)
             .build()
 
         notificationManager.notify(id, notification)

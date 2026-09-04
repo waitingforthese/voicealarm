@@ -32,7 +32,10 @@ fun AaradhanaScreen(
     val prefs = remember { AaradhanaPrefs(context.applicationContext) }
     var special by remember { mutableStateOf(prefs.specialHourly) }
     var japaCountText by remember { mutableStateOf(prefs.specialJapaCount.toString()) }
-    var intervalHoursText by remember { mutableStateOf(prefs.specialIntervalHours.toString()) }
+    var fixedTimesText by remember { mutableStateOf(prefs.specialFixedTimes) }
+    var nakChangeAaradhana by remember { mutableStateOf(prefs.nakshatraChangeAaradhana) }
+    var yogaChangeAaradhana by remember { mutableStateOf(prefs.yogaChangeAaradhana) }
+    var karanaChangeAaradhana by remember { mutableStateOf(prefs.karanaChangeAaradhana) }
     var speechRate by remember { mutableStateOf(prefs.speechRate) }
     var savedPopup by remember { mutableStateOf(false) }
     val moon = remember { LiveMoonCalculator.getCurrentMoonState() }
@@ -76,7 +79,7 @@ fun AaradhanaScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(Modifier.weight(1f)) {
                         Text("स्वयंचलित आराधना", color = Color.White, fontWeight = FontWeight.SemiBold)
-                        Text("ON असल्यास ठरलेल्या अंतराने जप सुरू होईल.", color = Color.LightGray, fontSize = 12.sp)
+                        Text("ON असल्यास रोज ठरलेल्या घड्याळाच्या वेळेला आराधना होईल.", color = Color.LightGray, fontSize = 12.sp)
                     }
                     Switch(checked = special, onCheckedChange = {
                         special = it
@@ -91,28 +94,34 @@ fun AaradhanaScreen(
                 Text("⚙️ जपाची सेटिंग", color = Color(0xFFFFC83D), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(Modifier.height(6.dp))
 
+                OutlinedTextField(
+                    value = fixedTimesText,
+                    onValueChange = { fixedTimesText = it.filter { ch -> ch.isDigit() || ch == ':' || ch == ',' }.take(80) },
+                    label = { Text("दररोज आराधना वेळा (HH:mm)") },
+                    supportingText = { Text("उदा. 05:00,08:00,11:00,14:00,17:00,20:00,23:00 • कमाल 8 वेळा") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFFFFC83D), unfocusedBorderColor = Color.Gray,
+                        focusedLabelColor = Color(0xFFFFC83D), unfocusedLabelColor = Color.LightGray
+                    )
+                )
+
+                Spacer(Modifier.height(10.dp))
+                Text("🔔 बदलाची आराधना — Notification Settings पासून स्वतंत्र", color = Color(0xFFFFC83D), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("खालील आराधना ON असेल तर संबंधित Alarm Settings OFF असली तरी आराधना होईल.", color = Color.LightGray, fontSize = 12.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("🌙 नक्षत्र बदल आराधना", color = Color.White); Switch(nakChangeAaradhana, { nakChangeAaradhana = it; prefs.nakshatraChangeAaradhana = it }) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("✨ योग बदल आराधना", color = Color.White); Switch(yogaChangeAaradhana, { yogaChangeAaradhana = it; prefs.yogaChangeAaradhana = it }) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("🔔 करण बदल आराधना", color = Color.White); Switch(karanaChangeAaradhana, { karanaChangeAaradhana = it; prefs.karanaChangeAaradhana = it }) }
+
+                Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = japaCountText,
                         onValueChange = { japaCountText = it.filter(Char::isDigit).take(3) },
                         label = { Text("जप संख्या") },
                         supportingText = { Text("1 ते 108") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFFFC83D),
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = Color(0xFFFFC83D),
-                            unfocusedLabelColor = Color.LightGray
-                        )
-                    )
-                    OutlinedTextField(
-                        value = intervalHoursText,
-                        onValueChange = { intervalHoursText = it.filter(Char::isDigit).take(2) },
-                        label = { Text("प्रत्येक किती तासांनी") },
-                        supportingText = { Text("1 ते 24 तास") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -144,15 +153,21 @@ fun AaradhanaScreen(
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = {
                     val count = japaCountText.toIntOrNull()?.coerceIn(1, 108) ?: 11
-                    val hours = intervalHoursText.toIntOrNull()?.coerceIn(1, 24) ?: 1
                     japaCountText = count.toString()
-                    intervalHoursText = hours.toString()
+                    val cleanTimes = fixedTimesText.split(',').mapNotNull { token ->
+                        val parts = token.trim().split(':')
+                        if (parts.size != 2) return@mapNotNull null
+                        val h = parts[0].toIntOrNull() ?: return@mapNotNull null
+                        val m = parts[1].toIntOrNull() ?: return@mapNotNull null
+                        if (h !in 0..23 || m !in 0..59) null else String.format(java.util.Locale.US, "%02d:%02d", h, m)
+                    }.distinct().take(8).joinToString(",")
+                    if (cleanTimes.isNotBlank()) fixedTimesText = cleanTimes
                     prefs.specialJapaCount = count
-                    prefs.specialIntervalHours = hours
+                    prefs.specialFixedTimes = cleanTimes.ifBlank { "05:00,08:00,11:00,14:00,17:00,20:00,23:00" }
                     prefs.speechRate = speechRate
 
-                    // Saving interval settings intentionally starts a fresh countdown
-                    // from this save action; later scheduleAll() calls preserve it.
+                    // Saving fixed clock times intentionally rebuilds the daily slots
+                    // from this save action; unrelated Alarm Settings changes preserve them.
                     val scheduler = AlarmScheduler(context.applicationContext)
                     scheduler.resetSpecialAaradhanaSchedule()
                     scheduler.scheduleAll()
@@ -176,7 +191,7 @@ fun AaradhanaScreen(
                 }
 
                 Spacer(Modifier.height(6.dp))
-                Text("ON असल्यास: नक्षत्र मंत्र → योग मंत्र → करण मंत्र • प्रत्येक मंत्रासाठी निवडलेली जप संख्या.", color = Color.LightGray, fontSize = 12.sp)
+                Text("ON असल्यास: नक्षत्र मंत्र → योग मंत्र → करण मंत्र • प्रत्येक मंत्रासाठी निवडलेली जप संख्या. आराधना रोजच्या fixed clock वेळेला होईल.", color = Color.LightGray, fontSize = 12.sp)
                 Text("या विशेष आराधनेत कोणतीही घोषणा केली जाणार नाही.", color = Color.LightGray, fontSize = 12.sp)
             }
         }
@@ -191,7 +206,7 @@ fun AaradhanaScreen(
             text = {
                 Column {
                     Text("जप संख्या: $japaCountText")
-                    Text("अंतर: $intervalHoursText तास")
+                    Text("रोजच्या वेळा: $fixedTimesText")
                     Text("आवाजाचा वेग: ${String.format(java.util.Locale.US, "%.2f", speechRate)}")
                     Spacer(Modifier.height(8.dp))
                     Text("🕉️ सध्याची नक्षत्र + योग + करण आराधना आत्ताच सुरू केली आहे.")
