@@ -166,7 +166,7 @@ class MainActivity : ComponentActivity() {
             val nm = getSystemService(NotificationManager::class.java)
             val soundUri = android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
             val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_ALARM)
+                .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
 

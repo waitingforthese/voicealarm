@@ -186,7 +186,7 @@ class AlarmReceiver : BroadcastReceiver() {
             channel.setSound(
                 android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_ALARM)
+                    .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
@@ -244,7 +244,7 @@ class AlarmReceiver : BroadcastReceiver() {
             channel.setSound(
                 android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_ALARM)
+                    .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
