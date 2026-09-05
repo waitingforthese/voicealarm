@@ -990,6 +990,7 @@ private fun ChandraSuryaHomeContent(
     if (showUserManager) {
         BackHandler { showUserManager = false }
         UserManagerScreen(
+            profile = profile,
             onBack = { showUserManager = false },
             onEdited = { old, updated ->
                 onUserEdited(old, updated)
@@ -1024,13 +1025,14 @@ private fun ChandraSuryaHomeContent(
 
     if (showGhatChakra) {
         BackHandler { showGhatChakra = false }
-        GhatChakraScreen(ghatChakra = ghatChakra, gender = profile.gender, onBack = { showGhatChakra = false })
+        GhatChakraScreen(profile = profile, ghatChakra = ghatChakra, gender = profile.gender, onBack = { showGhatChakra = false })
         return
     }
 
     if (showBadTara) {
         BackHandler { showBadTara = false }
         UpcomingBadTaraScreen(
+            profile = profile,
             birthNakshatra = profile.birthNakshatra,
             onBack = { showBadTara = false }
         )
@@ -1040,6 +1042,7 @@ private fun ChandraSuryaHomeContent(
     if (showGuidance) {
         BackHandler { showGuidance = false }
         NakshatraGuidanceScreen(
+            profile = profile,
             birthNakshatra = profile.birthNakshatra,
             onBack = { showGuidance = false }
         )
@@ -1093,30 +1096,23 @@ private fun ChandraSuryaHomeContent(
 
 
     Column(
-
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    backgroundColor
-                )
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(
-                    rememberScrollState()
-                )
-                .padding(
-                    12.dp
-                )
-
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
 
-        Spacer(
-            Modifier.height(6.dp)
-        )
-
-        // APP HEADER — app name first; alarm settings remain in the top-right corner.
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // FIXED / FREEZE PANE HEADER — remains visible while Home content scrolls.
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = backgroundColor,
+            shadowElevation = 5.dp
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             Text("🌙", fontSize = 38.sp)
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
@@ -1142,11 +1138,19 @@ private fun ChandraSuryaHomeContent(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
+                KundliReferenceButton(profile, textColor = white)
                 Text("⚙️", fontSize = 25.sp, modifier = Modifier.clickable { showSettings = true })
             }
         }
+        }
 
-        Spacer(Modifier.height(6.dp))
+        Column(
+            Modifier.fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp)
+        ) {
+            Spacer(Modifier.height(6.dp))
 
         // ACTIVE USER INFORMATION
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A))) {
@@ -1537,8 +1541,8 @@ private fun ChandraSuryaHomeContent(
                 .padding(bottom = 8.dp)
         )
     }
+    }
 }
-
 
 
 // ==========================================================
@@ -2288,15 +2292,20 @@ private fun FeatureNavigationButton(title: String, subtitle: String, accent: Col
 }
 
 @Composable
-private fun GhatChakraScreen(ghatChakra: GhatChakra, gender: String, onBack: () -> Unit) {
+private fun GhatChakraScreen(profile: BirthProfile, ghatChakra: GhatChakra, gender: String, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    Column(Modifier.fillMaxSize().background(Color(0xFF07111F)).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
-            Text("⚠️ घट चक्र", color = Color(0xFFFF7777), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().background(Color(0xFF07111F)).statusBarsPadding().navigationBarsPadding()) {
+        Surface(Modifier.fillMaxWidth(), color = Color(0xFF07111F), shadowElevation = 5.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
+                Text("⚠️ घट चक्र", color = Color(0xFFFF7777), fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                KundliReferenceButton(profile)
+            }
         }
-        Spacer(Modifier.height(6.dp))
-        GhatChakraCard(ghat = ghatChakra, gender = gender)
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
+            Spacer(Modifier.height(4.dp))
+            GhatChakraCard(ghat = ghatChakra, gender = gender)
+        }
     }
 }
 
@@ -2519,6 +2528,7 @@ private fun PanchangRow(
 
 @Composable
 private fun NakshatraGuidanceScreen(
+    profile: BirthProfile,
     birthNakshatra: String,
     onBack: () -> Unit
 ) {
@@ -2534,11 +2544,15 @@ private fun NakshatraGuidanceScreen(
     val guidancePrefs = remember { AlarmPrefs(context.applicationContext) }
     var guidanceEveryThreeHours by remember { mutableStateOf(guidancePrefs.nakshatraGuidanceEveryThreeHours) }
 
-    Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← मागे", color = white) }
-            Text("नक्षत्र मार्गदर्शन", color = white, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding()) {
+        Surface(Modifier.fillMaxWidth(), color = bg, shadowElevation = 5.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← मागे", color = white) }
+                Text("नक्षत्र मार्गदर्शन", color = white, fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                KundliReferenceButton(profile, textColor = white)
+            }
         }
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
 
         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(14.dp)) {
@@ -2605,10 +2619,12 @@ private fun NakshatraGuidanceScreen(
                 }
             }
         }
+        }
     }
 }
 @Composable
 private fun UpcomingBadTaraScreen(
+    profile: BirthProfile,
     birthNakshatra: String,
     onBack: () -> Unit
 ) {
@@ -2622,11 +2638,15 @@ private fun UpcomingBadTaraScreen(
     val bg = Color(0xFF07111F)
     val card = Color(0xFF35151A)
     val white = Color(0xFFF5F7FA)
-    Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← मागे", color = white) }
-            Text("विपत / प्रत्यारी / वध आगामी", color = warning, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding()) {
+        Surface(Modifier.fillMaxWidth(), color = bg, shadowElevation = 5.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← मागे", color = white) }
+                Text("विपत / प्रत्यारी / वध आगामी", color = warning, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                KundliReferenceButton(profile, textColor = white)
+            }
         }
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = card), shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.padding(14.dp)) {
                 Text("जन्म नक्षत्र: $birthNakshatra", color = white, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -2650,6 +2670,7 @@ private fun UpcomingBadTaraScreen(
                     }
                 }
             }
+        }
         }
     }
 }

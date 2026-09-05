@@ -65,34 +65,16 @@ fun TodayPredictionScreen(
 
     BackHandler(onBack = onBack)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bg)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onBack) {
-                Text("← मागे", color = white)
+    Column(Modifier.fillMaxSize().background(bg).statusBarsPadding().navigationBarsPadding()) {
+        Surface(Modifier.fillMaxWidth(), color = bg, shadowElevation = 5.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← मागे", color = white) }
+                Text("🔮 आजचे भाकीत", color = gold, fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                KundliReferenceButton(profile, textColor = white)
             }
-            Text(
-                "🔮 आजचे भाकीत",
-                color = gold,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.width(56.dp))
         }
-
-        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
+        Spacer(Modifier.height(2.dp))
 
         PredictionCard(card, white) {
             Text("जन्म चंद्र राशी: ${prediction.birthMoonRashi}", color = Color(0xFF4DA3FF), fontWeight = FontWeight.Bold)
@@ -251,6 +233,7 @@ fun TodayPredictionScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+        }
     }
 }
 

@@ -130,26 +130,69 @@ private fun FrameworkStudyPopup(
 fun FrameworkScreen(profile: BirthProfile, onBack: () -> Unit) {
     var selected by remember { mutableStateOf<FrameworkKind?>(null) }
     BackHandler { if (selected != null) selected = null else onBack() }
-    if (selected == null) FrameworkHome(onBack, { selected = it })
+    if (selected == null) FrameworkHome(profile, onBack, { selected = it })
     else FrameworkDetail(profile, selected!!, onBack = { selected = null })
 }
 
 @Composable
-private fun FrameworkHome(onBack: () -> Unit, onSelect: (FrameworkKind) -> Unit) {
-    Column(
-        Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()
-            .verticalScroll(rememberScrollState()).padding(12.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
-            Text("🧠 Framework", color = FrameworkAccent, fontSize = 23.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            Spacer(Modifier.width(55.dp))
+fun KundliReferenceButton(
+    profile: BirthProfile,
+    textColor: Color = Color.White
+) {
+    val context = LocalContext.current
+    var show by remember(profile) { mutableStateOf(false) }
+    var coords by remember(profile.birthPlace) { mutableStateOf<Pair<Double, Double>?>(null) }
+    LaunchedEffect(profile.birthPlace) {
+        coords = withContext(Dispatchers.IO) {
+            runCatching {
+                if (!Geocoder.isPresent()) null else Geocoder(context, java.util.Locale.getDefault())
+                    .getFromLocationName(profile.birthPlace, 1)?.firstOrNull()?.let { it.latitude to it.longitude }
+            }.getOrNull()
         }
-        Spacer(Modifier.height(8.dp))
-        Text("ग्रहस्थिती → प्रश्न → कारण → परिणाम → तुलना → अभ्यास", color = FrameworkSecondary,
-            fontSize = 13.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-        Spacer(Modifier.height(12.dp))
+    }
+    val birth = remember(profile, coords) {
+        if (coords == null) emptyMap() else BirthChartCalculator.calculate(
+            profile.birthDate, profile.birthTime, coords!!.first, coords!!.second
+        )
+    }
+    val transit = remember(profile, coords) {
+        if (coords == null) emptyMap() else FrameworkCalculator.calculate(
+            profile, coords!!.first, coords!!.second, FrameworkKind.MEDICAL
+        ).associate { it.graha to it.transit }
+    }
+    TextButton(
+        onClick = { if (birth.isNotEmpty()) show = true },
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text("▣ कुंडली", color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+    if (show && birth.isNotEmpty()) {
+        KundliReferencePopup(birth, transit) { show = false }
+    }
+}
+
+@Composable
+private fun FrameworkHome(profile: BirthProfile, onBack: () -> Unit, onSelect: (FrameworkKind) -> Unit) {
+    Column(Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = FrameworkBg,
+            shadowElevation = 4.dp
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
+                    Text("🧠 Framework", color = FrameworkAccent, fontSize = 23.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    KundliReferenceButton(profile, textColor = FrameworkText)
+                }
+                Text("ग्रहस्थिती → प्रश्न → कारण → परिणाम → तुलना → अभ्यास", color = FrameworkSecondary,
+                    fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), textAlign = TextAlign.Center)
+            }
+        }
+        Column(
+            Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)
+        ) {
         FrameworkKind.entries.forEach { kind ->
             Card(
                 Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable { onSelect(kind) },
@@ -171,6 +214,7 @@ private fun FrameworkHome(onBack: () -> Unit, onSelect: (FrameworkKind) -> Unit)
         Spacer(Modifier.height(10.dp))
         NoteCard("महत्त्वाचा अभ्यास नियम",
             "भाकीत शेवटी येईल. प्रत्येक आधीच्या घटकासाठी प्रश्न, उपलब्ध गणना आणि त्यातून निघणारा अर्थ आधी वाचता येईल.")
+        }
     }
 }
 
@@ -462,32 +506,38 @@ private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: 
     if (showKundliReference && birthChart.isNotEmpty()) {
         KundliReferencePopup(birthChart, transitReference) { showKundliReference = false }
     }
-    Column(
-        Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()
-            .verticalScroll(rememberScrollState()).padding(12.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
-            Text("${kind.icon} ${kind.title}", color = FrameworkAccent, fontSize = 21.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            OutlinedButton(
-                onClick = { showKundliReference = true },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                modifier = Modifier.height(38.dp)
-            ) {
-                Text("⚙ कुंडली", color = FrameworkText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = FrameworkBg,
+            shadowElevation = 4.dp
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
+                    Text("${kind.icon} ${kind.title}", color = FrameworkAccent, fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    OutlinedButton(
+                        onClick = { showKundliReference = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Text("⚙ कुंडली", color = FrameworkText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text("जन्मकुंडलीतील भाव = जन्मलग्नापासून  •  गोचर भाव = जन्म चंद्रराशीपासून",
+                    color = FrameworkSecondary, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         }
-        Spacer(Modifier.height(6.dp))
-        Text("जन्मकुंडलीतील भाव = जन्मलग्नापासून  •  गोचर भाव = जन्म चंद्रराशीपासून",
-            color = FrameworkSecondary, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(5.dp))
-        NoteCard("अभ्यासाची पद्धत",
-            "प्रत्येक ग्रहासाठी आधी प्रश्न वाचायचे, नंतर त्या प्रश्नाचे सध्याचे उत्तर पाहायचे. शेवटी सर्व संकेत जोडून संयुक्त Logic आणि भाकीत वाचायचे.")
-        if (coords == null) Text("जन्मठिकाणाचे coordinates शोधत आहे...", color = Color.Gray, modifier = Modifier.padding(12.dp))
-        if (kind == FrameworkKind.VASTU) VastuInfo()
-        data.forEach { planet -> PlanetStudyCard(planet, kind) }
-        if (data.isEmpty() && coords != null) Text("विश्लेषणासाठी जन्ममाहिती तपासा.", color = FrameworkSecondary, modifier = Modifier.padding(16.dp))
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
+            Spacer(Modifier.height(2.dp))
+            NoteCard("अभ्यासाची पद्धत",
+                "प्रत्येक ग्रहासाठी आधी प्रश्न वाचायचे, नंतर त्या प्रश्नाचे सध्याचे उत्तर पाहायचे. शेवटी सर्व संकेत जोडून संयुक्त Logic आणि भाकीत वाचायचे.")
+            if (coords == null) Text("जन्मठिकाणाचे coordinates शोधत आहे...", color = Color.Gray, modifier = Modifier.padding(12.dp))
+            if (kind == FrameworkKind.VASTU) VastuInfo()
+            data.forEach { planet -> PlanetStudyCard(planet, kind) }
+            if (data.isEmpty() && coords != null) Text("विश्लेषणासाठी जन्ममाहिती तपासा.", color = FrameworkSecondary, modifier = Modifier.padding(16.dp))
+        }
     }
 }
 

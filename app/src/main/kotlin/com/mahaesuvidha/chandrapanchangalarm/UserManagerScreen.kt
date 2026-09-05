@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.mahaesuvidha.chandrapanchangalarm.model.*
 
 @Composable
-fun UserManagerScreen(onBack: () -> Unit, onEdited: (BirthProfile, BirthProfile) -> Unit, onSelect: (BirthProfile) -> Unit) {
+fun UserManagerScreen(profile: BirthProfile, onBack: () -> Unit, onEdited: (BirthProfile, BirthProfile) -> Unit, onSelect: (BirthProfile) -> Unit) {
     val context = LocalContext.current
     var users by remember { mutableStateOf(BirthProfileStore.savedProfiles(context.applicationContext)) }
     var editing by remember { mutableStateOf<BirthProfile?>(null) }
@@ -51,13 +51,16 @@ fun UserManagerScreen(onBack: () -> Unit, onEdited: (BirthProfile, BirthProfile)
         )
     }
 
-    Column(Modifier.fillMaxSize().background(Color(0xFF07111F)).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
-            Text("👥 User व्यवस्थापन", color = Color(0xFFFFC83D), fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            Spacer(Modifier.width(55.dp))
+    Column(Modifier.fillMaxSize().background(Color(0xFF07111F)).statusBarsPadding().navigationBarsPadding()) {
+        Surface(Modifier.fillMaxWidth(), color = Color(0xFF07111F), shadowElevation = 5.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
+                Text("👥 User व्यवस्थापन", color = Color(0xFFFFC83D), fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                KundliReferenceButton(profile, textColor = Color.White)
+            }
         }
-        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
+        Spacer(Modifier.height(4.dp))
         if (users.isEmpty()) Text("एकही saved user नाही.", color = Color.LightGray, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         users.forEach { user ->
             Card(Modifier.fillMaxWidth().padding(vertical = 5.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A))) {
@@ -74,6 +77,7 @@ fun UserManagerScreen(onBack: () -> Unit, onEdited: (BirthProfile, BirthProfile)
                     }
                 }
             }
+        }
         }
     }
 }

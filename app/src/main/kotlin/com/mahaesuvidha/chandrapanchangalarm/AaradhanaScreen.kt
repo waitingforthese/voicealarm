@@ -43,14 +43,16 @@ fun AaradhanaScreen(
     val yogaInfo = AaradhanaMaster.forYoga(panchang.yoga)
     val karanaInfo = AaradhanaMaster.forKarana(panchang.karana)
 
-    Column(
-        Modifier.fillMaxSize().background(Color(0xFF07111F)).verticalScroll(rememberScrollState()).padding(14.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("🕉️ नक्षत्र आराधना", color = Color(0xFFFFC83D), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            TextButton(onClick = onBack) { Text("परत", color = Color.White) }
+    Column(Modifier.fillMaxSize().background(Color(0xFF07111F)).statusBarsPadding().navigationBarsPadding()) {
+        Surface(Modifier.fillMaxWidth(), color = Color(0xFF07111F), shadowElevation = 5.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("← परत", color = Color.White) }
+                Text("🕉️ नक्षत्र आराधना", color = Color(0xFFFFC83D), fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                KundliReferenceButton(profile, textColor = Color.White)
+            }
         }
-        Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
+        Spacer(Modifier.height(4.dp))
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A))) {
             Column(Modifier.padding(14.dp)) {
                 Text("👤 ${profile.name}", color = Color.White, fontWeight = FontWeight.Bold)
@@ -198,6 +200,8 @@ fun AaradhanaScreen(
         Spacer(Modifier.height(10.dp))
         Text("📖 मार्गदर्शन स्वतंत्र Part मध्ये राहील.", color = Color.LightGray, fontSize = 13.sp)
     }
+
+        }
 
     if (savedPopup) {
         AlertDialog(
