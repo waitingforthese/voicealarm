@@ -4,6 +4,7 @@ import android.location.Geocoder
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -170,9 +172,212 @@ private fun FrameworkHome(onBack: () -> Unit, onSelect: (FrameworkKind) -> Unit)
     }
 }
 
+
+@Composable
+private fun KundliReferencePopup(
+    birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
+    onDismiss: () -> Unit
+) {
+    val ascRashiIndex = remember(birth) {
+        birth[Graha.CHANDRA]?.let { moon ->
+            ((moon.rashiIndex - (moon.house - 1)) + 12) % 12
+        } ?: 0
+    }
+    val moonRashiIndex = birth[Graha.CHANDRA]?.rashiIndex ?: 0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFFF7F9FC),
+        titleContentColor = FrameworkText,
+        textContentColor = FrameworkText,
+        title = {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("▣ माझी जन्मकुंडली — Reading Reference", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            }
+        },
+        text = {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 680.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "वाचन करताना खालील दोन्ही कुंडल्या visual reference म्हणून वापरा.",
+                    color = FrameworkSecondary,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                KundliChartCard(
+                    title = "जन्मलग्न कुंडली (D-1)",
+                    subtitle = "भाव लग्नापासून • लग्न : ${Rashi.entries[ascRashiIndex].marathi}",
+                    referenceRashiIndex = ascRashiIndex,
+                    birth = birth,
+                    useMoonAsFirstHouse = false
+                )
+                Spacer(Modifier.height(12.dp))
+                KundliChartCard(
+                    title = "चंद्र कुंडली (राशी कुंडली)",
+                    subtitle = "भाव चंद्रराशीपासून • चंद्र : ${Rashi.entries[moonRashiIndex].marathi}",
+                    referenceRashiIndex = moonRashiIndex,
+                    birth = birth,
+                    useMoonAsFirstHouse = true
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "नियम: चौकटीतील भाव स्थिर; राशी क्रम त्या reference point पासून बदलतो. ग्रह ज्या राशीत आहेत त्यानुसार दोन्ही कुंडल्यांत त्यांची house-position बदलते.",
+                    color = FrameworkSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 17.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("बंद करा") } }
+    )
+}
+
+@Composable
+private fun KundliChartCard(
+    title: String,
+    subtitle: String,
+    referenceRashiIndex: Int,
+    birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
+    useMoonAsFirstHouse: Boolean
+) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = if (useMoonAsFirstHouse) Color(0xFFF2F8FF) else Color(0xFFFFFAF0)),
+        border = BorderStroke(1.dp, if (useMoonAsFirstHouse) Color(0xFFB9D6F5) else Color(0xFFE6C98A)),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(title, color = if (useMoonAsFirstHouse) Color(0xFF145B9A) else Color(0xFF8D1D1D), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = FrameworkSecondary, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp, bottom = 5.dp))
+            NorthIndianKundliCanvas(
+                referenceRashiIndex = referenceRashiIndex,
+                birth = birth,
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+            )
+        }
+    }
+}
+
+private fun chartPlanetShort(graha: Graha): String = when (graha) {
+    Graha.SURYA -> "सू"
+    Graha.CHANDRA -> "चं"
+    Graha.MANGAL -> "मं"
+    Graha.BUDH -> "बु"
+    Graha.GURU -> "गु"
+    Graha.SHUKRA -> "शु"
+    Graha.SHANI -> "श"
+    Graha.RAHU -> "रा"
+    Graha.KETU -> "के"
+}
+
+@Composable
+private fun NorthIndianKundliCanvas(
+    referenceRashiIndex: Int,
+    birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
+    modifier: Modifier = Modifier
+) {
+    val lineColor = Color(0xFF202020)
+    val signColor = Color(0xFF2947A3)
+    val planetColor = Color(0xFF7A1FA2)
+    val ascColor = Color(0xFFB71C1C)
+
+    Canvas(modifier = modifier.padding(2.dp)) {
+        val w = size.width
+        val h = size.height
+        val cx = w / 2f
+        val cy = h / 2f
+        val inset = minOf(w, h) * 0.035f
+        val l = inset
+        val r = w - inset
+        val t = inset
+        val b = h - inset
+        val midX = cx
+        val midY = cy
+
+        // North-Indian fixed-house geometry: square + X + central diamond.
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(l, t), androidx.compose.ui.geometry.Offset(r, t), strokeWidth = 2.2f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(r, t), androidx.compose.ui.geometry.Offset(r, b), strokeWidth = 2.2f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(r, b), androidx.compose.ui.geometry.Offset(l, b), strokeWidth = 2.2f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(l, b), androidx.compose.ui.geometry.Offset(l, t), strokeWidth = 2.2f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(l, t), androidx.compose.ui.geometry.Offset(r, b), strokeWidth = 1.8f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(r, t), androidx.compose.ui.geometry.Offset(l, b), strokeWidth = 1.8f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(midX, t), androidx.compose.ui.geometry.Offset(r, midY), strokeWidth = 1.8f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(r, midY), androidx.compose.ui.geometry.Offset(midX, b), strokeWidth = 1.8f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(midX, b), androidx.compose.ui.geometry.Offset(l, midY), strokeWidth = 1.8f)
+        drawLine(lineColor, androidx.compose.ui.geometry.Offset(l, midY), androidx.compose.ui.geometry.Offset(midX, t), strokeWidth = 1.8f)
+
+        // House centers follow the standard North-Indian fixed-house order.
+        val centers = arrayOf(
+            androidx.compose.ui.geometry.Offset(cx, h * 0.285f),
+            androidx.compose.ui.geometry.Offset(w * 0.285f, h * 0.14f),
+            androidx.compose.ui.geometry.Offset(w * 0.14f, h * 0.285f),
+            androidx.compose.ui.geometry.Offset(w * 0.285f, cy),
+            androidx.compose.ui.geometry.Offset(w * 0.14f, h * 0.715f),
+            androidx.compose.ui.geometry.Offset(w * 0.285f, h * 0.86f),
+            androidx.compose.ui.geometry.Offset(cx, h * 0.715f),
+            androidx.compose.ui.geometry.Offset(w * 0.715f, h * 0.86f),
+            androidx.compose.ui.geometry.Offset(w * 0.86f, h * 0.715f),
+            androidx.compose.ui.geometry.Offset(w * 0.715f, cy),
+            androidx.compose.ui.geometry.Offset(w * 0.86f, h * 0.285f),
+            androidx.compose.ui.geometry.Offset(w * 0.715f, h * 0.14f)
+        )
+
+        val nativeCanvas = drawContext.canvas.nativeCanvas
+        val signPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = signColor.toArgb()
+            textSize = minOf(w, h) * 0.055f
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val planetPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = planetColor.toArgb()
+            textSize = minOf(w, h) * 0.043f
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val ascPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ascColor.toArgb()
+            textSize = minOf(w, h) * 0.032f
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+
+        val planetsByRashi = birth.entries.groupBy { it.value.rashiIndex }
+        centers.forEachIndexed { index, center ->
+            val house = index + 1
+            val signIndex = (referenceRashiIndex + house - 1) % 12
+            nativeCanvas.drawText((signIndex + 1).toString(), center.x, center.y - minOf(w, h) * 0.025f, signPaint)
+
+            val planets = planetsByRashi[signIndex].orEmpty().map { chartPlanetShort(it.key) }
+            if (planets.isNotEmpty()) {
+                val rows = planets.chunked(3)
+                rows.forEachIndexed { row, chunk ->
+                    nativeCanvas.drawText(
+                        chunk.joinToString("  "),
+                        center.x,
+                        center.y + minOf(w, h) * (0.025f + row * 0.05f),
+                        planetPaint
+                    )
+                }
+            }
+            if (house == 1) {
+                nativeCanvas.drawText("ल", center.x, center.y + minOf(w, h) * 0.085f, ascPaint)
+            }
+        }
+    }
+}
+
 @Composable
 private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: () -> Unit) {
     val context = LocalContext.current
+    var showKundliReference by remember { mutableStateOf(false) }
     var coords by remember(profile.birthPlace) { mutableStateOf<Pair<Double, Double>?>(null) }
     LaunchedEffect(profile.birthPlace) {
         coords = withContext(Dispatchers.IO) {
@@ -185,6 +390,12 @@ private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: 
     val data = remember(profile, coords, kind) {
         if (coords == null) emptyList() else FrameworkCalculator.calculate(profile, coords!!.first, coords!!.second, kind)
     }
+    val birthChart = remember(profile, coords) {
+        if (coords == null) emptyMap() else BirthChartCalculator.calculate(profile.birthDate, profile.birthTime, coords!!.first, coords!!.second)
+    }
+    if (showKundliReference && birthChart.isNotEmpty()) {
+        KundliReferencePopup(birthChart) { showKundliReference = false }
+    }
     Column(
         Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()
             .verticalScroll(rememberScrollState()).padding(12.dp)
@@ -193,7 +404,13 @@ private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: 
             TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
             Text("${kind.icon} ${kind.title}", color = FrameworkAccent, fontSize = 21.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            Spacer(Modifier.width(55.dp))
+            OutlinedButton(
+                onClick = { showKundliReference = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(38.dp)
+            ) {
+                Text("⚙ कुंडली", color = FrameworkText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
         }
         Spacer(Modifier.height(6.dp))
         Text("जन्मकुंडलीतील भाव = जन्मलग्नापासून  •  गोचर भाव = जन्म चंद्रराशीपासून",
