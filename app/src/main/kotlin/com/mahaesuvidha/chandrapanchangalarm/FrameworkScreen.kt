@@ -177,6 +177,7 @@ private fun FrameworkHome(onBack: () -> Unit, onSelect: (FrameworkKind) -> Unit)
 @Composable
 private fun KundliReferencePopup(
     birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
+    transit: Map<Graha, FrameworkDay>,
     onDismiss: () -> Unit
 ) {
     val ascRashiIndex = remember(birth) {
@@ -193,7 +194,12 @@ private fun KundliReferencePopup(
         textContentColor = FrameworkText,
         title = {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("▣ माझी जन्मकुंडली — Reading Reference", fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(
+                    "▣ माझी जन्मकुंडली — Reading Reference",
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
             }
         },
         text = {
@@ -205,9 +211,10 @@ private fun KundliReferencePopup(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "वाचन करताना खालील दोन्ही कुंडल्या visual reference म्हणून वापरा.",
+                    "जन्मग्रह सामान्य अक्षरात • गोचर ग्रह त्यांच्या ग्रह-रंगाच्या हलक्या चौकोनी बॉक्समध्ये • सर्व अंश (°) स्पष्ट दाखवले आहेत.",
                     color = FrameworkSecondary,
                     fontSize = 12.sp,
+                    lineHeight = 18.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -216,6 +223,7 @@ private fun KundliReferencePopup(
                     subtitle = "भाव लग्नापासून • लग्न : ${Rashi.entries[ascRashiIndex].marathi}",
                     referenceRashiIndex = ascRashiIndex,
                     birth = birth,
+                    transit = transit,
                     useMoonAsFirstHouse = false
                 )
                 Spacer(Modifier.height(12.dp))
@@ -224,11 +232,12 @@ private fun KundliReferencePopup(
                     subtitle = "भाव चंद्रराशीपासून • चंद्र : ${Rashi.entries[moonRashiIndex].marathi}",
                     referenceRashiIndex = moonRashiIndex,
                     birth = birth,
+                    transit = transit,
                     useMoonAsFirstHouse = true
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "नियम: चौकटीतील भाव स्थिर; राशी क्रम त्या reference point पासून बदलतो. ग्रह ज्या राशीत आहेत त्यानुसार दोन्ही कुंडल्यांत त्यांची house-position बदलते.",
+                    "साधा ग्रह = जन्मस्थिती | रंगीत बॉक्स = आजचा गोचर | बॉक्समध्ये ग्रहाचे नाव + अचूक अंश. ग्रहाचा रंग दोन्ही कुंडल्यांत समान राहील.",
                     color = FrameworkSecondary,
                     fontSize = 11.sp,
                     lineHeight = 17.sp,
@@ -246,6 +255,7 @@ private fun KundliChartCard(
     subtitle: String,
     referenceRashiIndex: Int,
     birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
+    transit: Map<Graha, FrameworkDay>,
     useMoonAsFirstHouse: Boolean
 ) {
     Card(
@@ -260,6 +270,7 @@ private fun KundliChartCard(
             NorthIndianKundliCanvas(
                 referenceRashiIndex = referenceRashiIndex,
                 birth = birth,
+                transit = transit,
                 modifier = Modifier.fillMaxWidth().aspectRatio(1f)
             )
         }
@@ -267,34 +278,59 @@ private fun KundliChartCard(
 }
 
 private fun chartPlanetShort(graha: Graha): String = when (graha) {
-    Graha.SURYA -> "सू"
-    Graha.CHANDRA -> "चं"
-    Graha.MANGAL -> "मं"
-    Graha.BUDH -> "बु"
-    Graha.GURU -> "गु"
-    Graha.SHUKRA -> "शु"
-    Graha.SHANI -> "श"
-    Graha.RAHU -> "रा"
-    Graha.KETU -> "के"
+    Graha.SURYA -> "सूर्य"
+    Graha.CHANDRA -> "चंद्र"
+    Graha.MANGAL -> "मंगळ"
+    Graha.BUDH -> "बुध"
+    Graha.GURU -> "गुरु"
+    Graha.SHUKRA -> "शुक्र"
+    Graha.SHANI -> "शनि"
+    Graha.RAHU -> "राहू"
+    Graha.KETU -> "केतू"
+}
+
+private fun transitPlanetColor(graha: Graha): Color = when (graha) {
+    Graha.SURYA -> Color(0xFFFFD6A5)
+    Graha.CHANDRA -> Color(0xFFFFF0A8)
+    Graha.MANGAL -> Color(0xFFFFC7C2)
+    Graha.BUDH -> Color(0xFFC8F3C5)
+    Graha.GURU -> Color(0xFFFFE0A3)
+    Graha.SHUKRA -> Color(0xFFF6C6E8)
+    Graha.SHANI -> Color(0xFFD8C7F6)
+    Graha.RAHU -> Color(0xFFC8E1FF)
+    Graha.KETU -> Color(0xFFD5F1C8)
+}
+
+private fun transitPlanetTextColor(graha: Graha): Color = when (graha) {
+    Graha.SURYA -> Color(0xFF9A4B00)
+    Graha.CHANDRA -> Color(0xFF756300)
+    Graha.MANGAL -> Color(0xFF9B2C2C)
+    Graha.BUDH -> Color(0xFF216A2A)
+    Graha.GURU -> Color(0xFF8A5A00)
+    Graha.SHUKRA -> Color(0xFF8A236C)
+    Graha.SHANI -> Color(0xFF55339A)
+    Graha.RAHU -> Color(0xFF245A9B)
+    Graha.KETU -> Color(0xFF397A27)
 }
 
 @Composable
 private fun NorthIndianKundliCanvas(
     referenceRashiIndex: Int,
     birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
+    transit: Map<Graha, FrameworkDay>,
     modifier: Modifier = Modifier
 ) {
     val lineColor = Color(0xFF202020)
     val signColor = Color(0xFF2947A3)
-    val planetColor = Color(0xFF7A1FA2)
     val ascColor = Color(0xFFB71C1C)
 
     Canvas(modifier = modifier.padding(2.dp)) {
         val w = size.width
         val h = size.height
+        val minSide = minOf(w, h)
         val cx = w / 2f
         val cy = h / 2f
-        val inset = minOf(w, h) * 0.035f
+        val inset = minSide * 0.035f
         val l = inset
         val r = w - inset
         val t = inset
@@ -302,7 +338,6 @@ private fun NorthIndianKundliCanvas(
         val midX = cx
         val midY = cy
 
-        // North-Indian fixed-house geometry: square + X + central diamond.
         drawLine(lineColor, androidx.compose.ui.geometry.Offset(l, t), androidx.compose.ui.geometry.Offset(r, t), strokeWidth = 2.2f)
         drawLine(lineColor, androidx.compose.ui.geometry.Offset(r, t), androidx.compose.ui.geometry.Offset(r, b), strokeWidth = 2.2f)
         drawLine(lineColor, androidx.compose.ui.geometry.Offset(r, b), androidx.compose.ui.geometry.Offset(l, b), strokeWidth = 2.2f)
@@ -314,7 +349,6 @@ private fun NorthIndianKundliCanvas(
         drawLine(lineColor, androidx.compose.ui.geometry.Offset(midX, b), androidx.compose.ui.geometry.Offset(l, midY), strokeWidth = 1.8f)
         drawLine(lineColor, androidx.compose.ui.geometry.Offset(l, midY), androidx.compose.ui.geometry.Offset(midX, t), strokeWidth = 1.8f)
 
-        // House centers follow the standard North-Indian fixed-house order.
         val centers = arrayOf(
             androidx.compose.ui.geometry.Offset(cx, h * 0.285f),
             androidx.compose.ui.geometry.Offset(w * 0.285f, h * 0.14f),
@@ -333,43 +367,65 @@ private fun NorthIndianKundliCanvas(
         val nativeCanvas = drawContext.canvas.nativeCanvas
         val signPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = signColor.toArgb()
-            textSize = minOf(w, h) * 0.055f
+            textSize = minSide * 0.052f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
-        val planetPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = planetColor.toArgb()
-            textSize = minOf(w, h) * 0.043f
+        val birthPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.BLACK
+            textSize = minSide * 0.036f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val ascPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = ascColor.toArgb()
-            textSize = minOf(w, h) * 0.032f
+            textSize = minSide * 0.032f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
+        val boxPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        val boxTextPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = minSide * 0.028f
+        }
 
-        val planetsByRashi = birth.entries.groupBy { it.value.rashiIndex }
+        val birthByRashi = birth.entries.groupBy { it.value.rashiIndex }
+        val transitByRashi = transit.entries.groupBy { Rashi.entries.indexOfFirst { r -> r.marathi == it.value.rashi }.let { idx -> if (idx >= 0) idx else 0 } }
+
         centers.forEachIndexed { index, center ->
             val house = index + 1
             val signIndex = (referenceRashiIndex + house - 1) % 12
-            nativeCanvas.drawText((signIndex + 1).toString(), center.x, center.y - minOf(w, h) * 0.025f, signPaint)
+            nativeCanvas.drawText((signIndex + 1).toString(), center.x, center.y - minSide * 0.095f, signPaint)
 
-            val planets = planetsByRashi[signIndex].orEmpty().map { chartPlanetShort(it.key) }
-            if (planets.isNotEmpty()) {
-                val rows = planets.chunked(3)
-                rows.forEachIndexed { row, chunk ->
-                    nativeCanvas.drawText(
-                        chunk.joinToString("  "),
-                        center.x,
-                        center.y + minOf(w, h) * (0.025f + row * 0.05f),
-                        planetPaint
-                    )
+            val natalPlanets = birthByRashi[signIndex].orEmpty().map { it.key to it.value }
+            val transitPlanets = transitByRashi[signIndex].orEmpty().map { it.key to it.value }
+
+            var y = center.y - minSide * 0.035f
+            natalPlanets.forEach { (g, pos) ->
+                nativeCanvas.drawText("${chartPlanetShort(g)} ${degreeText(pos.longitude)}", center.x, y, birthPaint)
+                y += minSide * 0.043f
+            }
+
+            if (transitPlanets.isNotEmpty()) {
+                y += minSide * 0.006f
+                transitPlanets.forEach { (g, day) ->
+                    val label = "गो ${chartPlanetShort(g)} ${day.degrees}°"
+                    val maxBoxWidth = minSide * 0.27f
+                    val boxHeight = minSide * 0.052f
+                    val left = center.x - maxBoxWidth / 2f
+                    val top = y - boxHeight * 0.82f
+                    val right = center.x + maxBoxWidth / 2f
+                    val bottom = y + boxHeight * 0.18f
+                    boxPaint.color = transitPlanetColor(g).toArgb()
+                    nativeCanvas.drawRoundRect(left, top, right, bottom, boxHeight * 0.22f, boxHeight * 0.22f, boxPaint)
+                    boxTextPaint.color = transitPlanetTextColor(g).toArgb()
+                    nativeCanvas.drawText(label, center.x, y, boxTextPaint)
+                    y += minSide * 0.058f
                 }
             }
             if (house == 1) {
-                nativeCanvas.drawText("ल", center.x, center.y + minOf(w, h) * 0.085f, ascPaint)
+                nativeCanvas.drawText("ल", center.x, center.y + minSide * 0.11f, ascPaint)
             }
         }
     }
@@ -394,8 +450,11 @@ private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: 
     val birthChart = remember(profile, coords) {
         if (coords == null) emptyMap() else BirthChartCalculator.calculate(profile.birthDate, profile.birthTime, coords!!.first, coords!!.second)
     }
+    val transitReference = remember(data) {
+        data.associate { it.graha to it.transit }
+    }
     if (showKundliReference && birthChart.isNotEmpty()) {
-        KundliReferencePopup(birthChart) { showKundliReference = false }
+        KundliReferencePopup(birthChart, transitReference) { showKundliReference = false }
     }
     Column(
         Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()
