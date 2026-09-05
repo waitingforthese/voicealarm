@@ -277,6 +277,8 @@ private fun KundliChartCard(
     }
 }
 
+private fun degreeText(v: Double): String = String.format(java.util.Locale.US, "%.2f", v % 30.0)
+
 private fun chartPlanetShort(graha: Graha): String = when (graha) {
     Graha.SURYA -> "सूर्य"
     Graha.CHANDRA -> "चंद्र"
@@ -1220,7 +1222,6 @@ private object FrameworkCalculator {
         "अश्विनी"->"वेग, आरंभ, उपचार/चपळता"; "भरणी"->"जबाबदारी, धारणशक्ती, परिवर्तन"; "कृत्तिका"->"शुद्धीकरण, निर्णय, तीक्ष्णता"; "रोहिणी"->"वृद्धी, आकर्षण, निर्मिती"; "मृगशीर्ष"->"शोध, उत्सुकता, प्रवास"; "आर्द्रा"->"तीव्र बदल, संशोधन, disruption"; "पुनर्वसू"->"पुनरागमन, पुनर्बांधणी, विस्तार"; "पुष्य"->"पोषण, शिस्त, संरक्षण"; "आश्लेषा"->"गूढता, रणनीती, अंतर्मुखता"; "मघा"->"पूर्वज, प्रतिष्ठा, अधिकार"; "पूर्वाफाल्गुनी"->"सुख, संबंध, सर्जनशीलता"; "उत्तराफाल्गुनी"->"करार, जबाबदारी, स्थैर्य"; "हस्त"->"कौशल्य, नियंत्रण, हस्तकौशल्य"; "चित्रा"->"रचना, सौंदर्य, सर्जनशीलता"; "स्वाती"->"स्वातंत्र्य, व्यापार, adaptability"; "विशाखा"->"ध्येय, विस्तार, स्पर्धात्मक साध्य"; "अनुराधा"->"मैत्री, नेटवर्क, devotion"; "ज्येष्ठा"->"जबाबदारी, संरक्षण, वरिष्ठता"; "मूळ"->"मुळाशी जाणे, संशोधन, परिवर्तन"; "पूर्वाषाढा"->"प्रेरणा, विजय, प्रभाव"; "उत्तराषाढा"->"स्थैर्य, नेतृत्व, दीर्घकालीन यश"; "श्रवण"->"ऐकणे, शिक्षण, माहिती"; "धनिष्ठा"->"संसाधने, ताल, समूह"; "शतभिषा"->"उपचार, संशोधन, गोपनीयता"; "पूर्वाभाद्रपदा"->"तीव्र आदर्श, परिवर्तन, तपस्या"; "उत्तराभाद्रपदा"->"स्थैर्य, खोल विचार, संयम"; "रेवती"->"मार्गदर्शन, प्रवास, पूर्णता"; else->"नक्षत्राचे पारंपरिक विषय"
     }
 
-    private fun degreeText(v: Double): String = String.format(java.util.Locale.US, "%.2f", v % 30.0)
     private fun longitude(swe: swisseph.SwissEph, jd: Double, body: Int): Double { val xx=DoubleArray(6); swe.swe_calc_ut(jd, body, swisseph.SweConst.SEFLG_SWIEPH or swisseph.SweConst.SEFLG_SIDEREAL, xx, StringBuffer()); return ((xx[0] % 360)+360)%360 }
     private fun rashiIndex(v: Double) = (v/30.0).toInt().coerceIn(0,11)
     private fun julianDay(date: LocalDate, hour: Double): Double { val cal=java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")); cal.set(date.year,date.monthValue-1,date.dayOfMonth,12,0,0); cal.set(java.util.Calendar.MILLISECOND,0); return swisseph.SweDate.getJulDay(cal.get(java.util.Calendar.YEAR),cal.get(java.util.Calendar.MONTH)+1,cal.get(java.util.Calendar.DAY_OF_MONTH),hour,swisseph.SweDate.SE_GREG_CAL) }
