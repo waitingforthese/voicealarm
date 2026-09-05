@@ -101,7 +101,8 @@ private fun FrameworkStudyPopup(
         title = {
             Text(
                 title,
-                style = MaterialTheme.typography.titleLarge,
+                fontSize = 23.sp,
+                lineHeight = 29.sp,
                 fontWeight = FontWeight.Bold
             )
         },
@@ -114,13 +115,13 @@ private fun FrameworkStudyPopup(
             ) {
                 Text(
                     body,
-                    style = MaterialTheme.typography.bodyLarge,
-                    lineHeight = 27.sp
+                    fontSize = 18.sp,
+                    lineHeight = 30.sp
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("बंद करा") }
+            TextButton(onClick = onDismiss) { Text("बंद करा", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
         }
     )
 }
@@ -265,8 +266,8 @@ private fun KundliChartCard(
         shape = RoundedCornerShape(14.dp)
     ) {
         Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, color = if (useMoonAsFirstHouse) Color(0xFF145B9A) else Color(0xFF8D1D1D), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = FrameworkSecondary, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp, bottom = 5.dp))
+            Text(title, color = if (useMoonAsFirstHouse) Color(0xFF145B9A) else Color(0xFF8D1D1D), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = FrameworkSecondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 3.dp, bottom = 8.dp))
             NorthIndianKundliCanvas(
                 referenceRashiIndex = referenceRashiIndex,
                 birth = birth,
@@ -369,19 +370,19 @@ private fun NorthIndianKundliCanvas(
         val nativeCanvas = drawContext.canvas.nativeCanvas
         val signPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = signColor.toArgb()
-            textSize = minSide * 0.052f
+            textSize = minSide * 0.063f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val birthPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
-            textSize = minSide * 0.036f
+            textSize = minSide * 0.046f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val ascPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = ascColor.toArgb()
-            textSize = minSide * 0.032f
+            textSize = minSide * 0.040f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
@@ -389,7 +390,7 @@ private fun NorthIndianKundliCanvas(
         val boxTextPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            textSize = minSide * 0.028f
+            textSize = minSide * 0.037f
         }
 
         val birthByRashi = birth.entries.groupBy { it.value.rashiIndex }
@@ -413,17 +414,20 @@ private fun NorthIndianKundliCanvas(
                 y += minSide * 0.006f
                 transitPlanets.forEach { (g, day) ->
                     val label = "गो ${chartPlanetShort(g)} ${day.degrees}°"
-                    val maxBoxWidth = minSide * 0.27f
-                    val boxHeight = minSide * 0.052f
-                    val left = center.x - maxBoxWidth / 2f
+                    // Keep the pastel background only as wide as the actual transit label.
+                    // This makes the transit overlay visually distinct without wasting chart space.
+                    val horizontalPad = minSide * 0.016f
+                    val boxWidth = boxTextPaint.measureText(label) + horizontalPad * 2f
+                    val boxHeight = minSide * 0.068f
+                    val left = center.x - boxWidth / 2f
                     val top = y - boxHeight * 0.82f
-                    val right = center.x + maxBoxWidth / 2f
+                    val right = center.x + boxWidth / 2f
                     val bottom = y + boxHeight * 0.18f
                     boxPaint.color = transitPlanetColor(g).toArgb()
                     nativeCanvas.drawRoundRect(left, top, right, bottom, boxHeight * 0.22f, boxHeight * 0.22f, boxPaint)
                     boxTextPaint.color = transitPlanetTextColor(g).toArgb()
                     nativeCanvas.drawText(label, center.x, y, boxTextPaint)
-                    y += minSide * 0.058f
+                    y += minSide * 0.074f
                 }
             }
             if (house == 1) {
