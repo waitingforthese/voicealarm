@@ -89,6 +89,224 @@ private data class FrameworkPlanet(
 )
 
 
+
+@Composable
+fun TransitAnalysisButton(
+    profile: BirthProfile,
+    textColor: Color = Color.White
+) {
+    val context = LocalContext.current
+    var show by remember(profile) { mutableStateOf(false) }
+    var coords by remember(profile.birthPlace) { mutableStateOf<Pair<Double, Double>?>(null) }
+    LaunchedEffect(profile.birthPlace) {
+        coords = withContext(Dispatchers.IO) {
+            runCatching {
+                if (!Geocoder.isPresent()) null else Geocoder(context, java.util.Locale.getDefault())
+                    .getFromLocationName(profile.birthPlace, 1)?.firstOrNull()?.let { it.latitude to it.longitude }
+            }.getOrNull()
+        }
+    }
+    val data = remember(profile, coords) {
+        if (coords == null) emptyList()
+        else FrameworkCalculator.calculate(profile, coords!!.first, coords!!.second, FrameworkKind.MEDICAL)
+    }
+    TextButton(
+        onClick = { if (data.isNotEmpty()) show = true },
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text("📊 गोचर", color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+    if (show && data.isNotEmpty()) {
+        TransitAnalysisPopup(data) { show = false }
+    }
+}
+
+@Composable
+private fun TransitAnalysisPopup(
+    planets: List<FrameworkPlanet>,
+    onDismiss: () -> Unit
+) {
+    var selected by remember { mutableStateOf<Graha?>(null) }
+    val chosen = selected?.let { g -> planets.firstOrNull { it.graha == g } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFFF7F9FC),
+        titleContentColor = FrameworkText,
+        textContentColor = FrameworkText,
+        title = {
+            Text(
+                if (chosen == null) "📊 संपूर्ण गोचर विश्लेषण" else "📊 ${chosen.graha.marathi} — संपूर्ण गोचर विश्लेषण",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 680.dp).verticalScroll(rememberScrollState())
+            ) {
+                if (chosen == null) {
+                    Text(
+                        "आजच्या वास्तविक वेळेतील गोचरस्थितीवर आधारित खालील 9 ग्रहांचे स्वतंत्र सुमारे 1000 शब्दांचे विश्लेषण उपलब्ध आहे. ग्रह कुठे आहे, कोणत्या भावात आहे, का ते महत्त्वाचे आहे, राशी, राशीस्वामी, जन्मग्रह, दृष्टी, नक्षत्र, चरण, जीवनक्षेत्र, अनुकूल/प्रतिकूल संकेत, कालावधी आणि संयुक्त निष्कर्ष या सर्व स्तरांचा क्रमाने विचार केला जातो.",
+                        fontSize = 15.sp, lineHeight = 23.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    planets.forEach { p ->
+                        Card(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { selected = p.graha },
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, FrameworkBorder),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Column(Modifier.padding(13.dp)) {
+                                Text("${frameworkPlanetEmoji(p.graha)} ${p.graha.marathi}", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "सध्या ${p.transit.rashi} • ${p.transit.house}वा भाव • ${p.transit.degrees}° • ${p.transit.nakshatra} • चरण ${p.transit.pada}",
+                                    color = FrameworkAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(top = 3.dp)
+                                )
+                                Text("टॅप करा → पूर्ण गोचर विश्लेषण", color = FrameworkSecondary, fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        "सध्याची स्थिती: ${chosen.transit.rashi} ${chosen.transit.degrees}° • ${chosen.transit.house}वा भाव (जन्म चंद्रराशीपासून) • ${chosen.transit.nakshatra}, चरण ${chosen.transit.pada}",
+                        color = FrameworkAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        lineHeight = 21.sp, modifier = Modifier.padding(bottom = 10.dp)
+                    )
+                    Text(
+                        completeTransitAnalysis(chosen),
+                        fontSize = 16.sp,
+                        lineHeight = 27.sp
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(onClick = { selected = null }, modifier = Modifier.fillMaxWidth()) {
+                        Text("← 9 ग्रहांच्या यादीकडे")
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("बंद करा", fontSize = 16.sp, fontWeight = FontWeight.Bold) } }
+    )
+}
+
+private fun completeTransitAnalysis(p: FrameworkPlanet): String {
+    val g = p.graha
+    val t = p.transit
+    val sign = t.rashi
+    val house = t.house
+    val birthHouse = p.birthHouse
+    val birthSign = p.birthRashi
+    val common = """
+${g.marathi} सध्या ${sign} राशीत ${t.degrees}° अंशावर, ${house}व्या भावातून गोचर करीत आहे. येथे ‘कुठे आहे?’ हा पहिला प्रश्न आहे; पण ज्योतिषीय विश्लेषण तेथे थांबत नाही. ‘का महत्त्वाचे आहे?’ यासाठी ग्रहाचे नैसर्गिक कारकत्व, गोचर भाव, गोचर राशी, राशीस्वामी, जन्मकुंडलीतील त्याची मूळ स्थिती, दृष्टी, नक्षत्र व नक्षत्रस्वामी, चरण व नवांश, तसेच जन्म चंद्रराशीपासूनचा संदर्भ एकत्र पाहावा लागतो. त्यामुळे हा मजकूर केवळ ग्रह-राशीचे सामान्य राशिभविष्य नसून सध्याच्या गोचराची reading-reference पद्धत आहे.
+
+जन्मकुंडलीत ${g.marathi} ${birthHouse}व्या भावात ${birthSign} राशीत आहे. हा जन्मस्थितीचा स्थिर पाया आहे. गोचर हा त्या स्थिर पायावर सध्या कोणता भाग सक्रिय होतो हे दाखवतो. जन्मग्रहाचा अर्थ बदलत नाही; मात्र त्याच्या कारकत्वाशी संबंधित घटना, निर्णय, भावना किंवा परिस्थिती कोणत्या जीवनक्षेत्रात प्रकर्षाने जाणवू शकतात हे गोचरामुळे बदलते. म्हणून ‘जन्मात हा ग्रह असा आहे, त्यामुळे आज नक्की असेच होईल’ असा सरळ निष्कर्ष योग्य नाही. जन्मस्थिती + वर्तमान गोचर + इतर supporting combinations हा अधिक शिस्तबद्ध मार्ग आहे.
+
+${planetNature(g)}
+
+${planetHouseMeaning(g, house)}
+
+${planetSignMeaning(g, sign, t.rashiLord)}
+
+${planetBirthLink(g, birthHouse, birthSign)}
+
+दृष्टीचा स्तर देखील महत्त्वाचा आहे. ${g.marathi} ची सध्याची दृष्टी ${t.aspects} अशी आहे. दृष्टी ज्या भावांवर पडते, त्या भावांचे विषय आणि त्या भावांत असलेले जन्मग्रह यांचा स्वतंत्र अभ्यास करावा. जर दृष्टीच्या भावात एखादा महत्त्वाचा जन्मग्रह असेल तर गोचराचा प्रभाव त्या ग्रहाच्या कारकत्वाशी जोडला जाऊ शकतो. मात्र दृष्टी दिसली म्हणून घटना निश्चित होते असे मानायचे नाही; ती एक supporting signal आहे. विशेषतः मंगळ, गुरु आणि शनि यांच्या विशेष दृष्टींचा विचार करताना संबंधित भावस्वामी, जन्मग्रहाचे बल आणि इतर गोचर यांची पुष्टी पाहणे आवश्यक आहे.
+
+नक्षत्र हा पुढचा सूक्ष्म स्तर आहे. सध्याचे नक्षत्र ${t.nakshatra}, त्याचा स्वामी ${t.nakshatraLord} आणि चरण ${t.pada} आहे. ग्रह कोणत्या नक्षत्रात आहे याचा अर्थ ग्रहाचे फलित त्या नक्षत्रस्वामीच्या विषयांशी जोडले जाते. म्हणून नक्षत्रस्वामी जन्मकुंडलीत कुठे आहे, कोणत्या भावांचा स्वामी आहे, कोणत्या ग्रहांशी संबंध आहे आणि त्याची ताकद कशी आहे हे पाहणे आवश्यक आहे. नक्षत्र हा ‘अधिक सूक्ष्म कारण-साखळी’ देतो; तो स्वतंत्रपणे संपूर्ण फलित ठरवत नाही.
+
+चरण ${t.pada} आणि नवांश ${t.navamshaRashi}, स्वामी ${t.navamshaLord} हा आणखी सूक्ष्म modifier आहे. चरणामुळे नक्षत्राच्या चार भागांपैकी नेमका कोणता भाग सक्रिय आहे हे समजते. नवांशाचा उपयोग ग्रहाच्या सूक्ष्म अभिव्यक्तीचा अभ्यास करण्यासाठी करता येतो. त्यामुळे मुख्य निष्कर्ष आधी रास आणि भावातून घ्यायचा आणि नंतर नक्षत्र-चरण-नवांशाने refine करायचा. उलट क्रमाने फक्त चरण पाहून मोठे भाकीत करणे टाळावे.
+
+${lifeDomainAnalysis(g, house, sign)}
+
+‘का?’ या प्रश्नाचे उत्तर देताना तीन वेगळे स्तर कायम लक्षात ठेवावेत. पहिला म्हणजे ग्रहाचे नैसर्गिक कारकत्व; दुसरा म्हणजे तो ज्या भावातून गोचर करतो त्या भावाचे विषय; आणि तिसरा म्हणजे गोचर राशी व तिचा स्वामी. उदाहरणार्थ, एखादा ग्रह धनकारक असला तरी तो 12व्या भावातून गोचर करीत असल्यास खर्च, परदेश, गुंतवणूक, विलगीकरण किंवा release यांसारखे विषय समोर येऊ शकतात. त्याचा अर्थ ‘पैसा वाईट’ असा सरळ नसतो. त्याचप्रमाणे कठीण मानला जाणारा ग्रह योग्य भाव, मजबूत राशीस्वामी आणि supportive जन्मयोगांमुळे शिस्त, संरचना किंवा दीर्घकालीन फायदा देऊ शकतो.
+
+सध्याच्या संकेताची तीव्रता मोजताना अंशांची स्थिती, ग्रहाचा वेग, वक्री/मार्गी स्थिती, राशीस्वामीची ताकद, नक्षत्रस्वामीची जन्मस्थिती, संबंधित भावातील जन्मग्रह आणि इतर महत्त्वाचे गोचर हे पाहावे. जलद ग्रहांचे परिणाम दिवस/आठवड्यांच्या पातळीवर अधिक बदलू शकतात; गुरु व शनि यांसारख्या मंद ग्रहांचे प्रभाव अधिक दीर्घकाळ जाणवू शकतात. राहू-केतूंचा विचार करताना त्यांच्या अक्षाचा आणि संबंधित भावांचा संयुक्त अर्थ पाहावा. म्हणून ‘आज गोचर आहे म्हणजे आजच घटना’ हा निष्कर्ष टाळावा; activation window हा अधिक योग्य विचार आहे.
+
+${supportMitigation(g)}
+
+व्यवसाय/नोकरीच्या पातळीवर या गोचराचा अर्थ स्वतंत्रपणे तपासता येतो: अधिकार, कामाचा भार, client/public dealing, sales, cash flow, compliance, competition, partnership, technology, travel किंवा professional reputation यापैकी कोणता विषय सक्रिय आहे ते भाव आणि ग्रहाच्या कारकत्वातून ठरवावे. आर्थिक पातळीवर उत्पन्न आणि खर्च दोन्ही बाजू पाहाव्यात. घर/मालमत्ता/वाहनासाठी 4था भाव, 2रा-8वा-11वा-12वा भाव आणि संबंधित ग्रहांचा संबंध तपासावा. संबंधांसाठी 7वा, 2रा, 5वा, 8वा आणि शुक्र/गुरु/चंद्र यांच्या स्थितीचा संदर्भ महत्त्वाचा ठरू शकतो. शिक्षणासाठी 2रा, 4था, 5वा, 9वा आणि बुध/गुरु यांचा संदर्भ पाहावा.
+
+आरोग्याच्या संदर्भात ग्रह-भाव संबंध हे पारंपरिक संकेत म्हणूनच वापरावेत. ‘शनि म्हणजे हाडे’ किंवा ‘मंगळ म्हणजे रक्त’ असे एकच सूत्र वापरून रोगनिदान करणे योग्य नाही. 1, 6, 8, 12 भाव, संबंधित ग्रह, राशी, नक्षत्र, दशा आणि इतर पुष्टीकारक योगांचा व्यापक संदर्भ आवश्यक आहे. प्रत्यक्ष शारीरिक लक्षणे असतील तर वैद्यकीय तपासणीला प्राधान्य द्यावे. या विश्लेषणाचा उद्देश health-symbolism समजणे आहे, diagnosis देणे नाही.
+
+Classical study मध्ये बृहत् पराशर होरा शास्त्र, फलदीपिका, बृहत् जातक, सारावली आणि जातक पारिजात यांसारख्या ग्रंथांत ग्रह, भाव, राशी, दृष्टी आणि योग यांच्या फलिताचे विविध नियम आढळतात. येथे त्यांचा उपयोग ‘ग्रह + भाव + राशी + संबंध’ या पारंपरिक चौकटीसाठी केला आहे; प्रत्येक वाक्य हे एखाद्या ग्रंथातील शब्दशः उद्धरण समजू नये. अॅपमधील computational logic ही त्या पारंपरिक चौकटीची आधुनिक, नियमाधारित मांडणी आहे.
+
+${observationAndConclusion(g, house, sign)}
+
+अंतिम निष्कर्ष असा घ्यायचा की ${g.marathi} सध्या ${sign} राशीत ${house}व्या भावाचा विषय सक्रिय करीत आहे; पण त्या परिणामाची दिशा ${t.rashiLord} राशीस्वामी, जन्मस्थिती (${birthHouse}वा भाव, ${birthSign}), ${t.nakshatra} नक्षत्र व ${t.nakshatraLord} नक्षत्रस्वामी, चरण ${t.pada}, तसेच दृष्टी आणि इतर गोचर यांवर अवलंबून refine होते. म्हणून या ग्रहाकडे ‘चांगला’ किंवा ‘वाईट’ म्हणून न पाहता ‘कुठले जीवनक्षेत्र सक्रिय झाले, कोणता mechanism काम करतो, कोणती supporting किंवा mitigating स्थिती आहे आणि किती काळ ती राहू शकते?’ या चार प्रश्नांनी पाहणे हे अधिक अचूक आहे.
+""".trimIndent()
+    return common
+}
+
+private fun planetNature(g: Graha): String = when (g) {
+    Graha.SURYA -> "☀️ सूर्य — आत्मबल, अधिकार, वडील/वरिष्ठ, शासन, प्रतिष्ठा, नेतृत्व, शरीरातील vitality आणि निर्णयक्षमता यांचे प्रमुख कारकत्व मानले जाते. गोचर सूर्य एखाद्या भावात आला की त्या भावाशी संबंधित visibility, authority आणि self-expression वाढण्याची शक्यता अभ्यासली जाते. कठीण संबंध असल्यास ego clash, वरिष्ठांशी तणाव किंवा ‘माझेच योग्य’ अशी भूमिका दिसू शकते. सकारात्मक स्थितीत नेतृत्व, clarity, recognition आणि निर्णयक्षमता उपयोगी पडते."
+    Graha.CHANDRA -> "🌙 चंद्र — मन, भावना, सवय, स्मृती, माता, लोकसंपर्क, पोषण, झोप आणि मानसिक ग्रहणशीलतेचा प्रमुख संकेत आहे. चंद्र वेगवान असल्याने त्याचा गोचर अनुभव इतर ग्रहांच्या तुलनेत लवकर बदलतो. तो ज्या भावातून जातो त्या भावाचा विषय मनाच्या पातळीवर अधिक जाणवू शकतो. म्हणून चंद्रगोचराला घटना निश्चित करणारा एकमेव घटक न मानता daily emotional climate म्हणून वाचणे योग्य आहे."
+    Graha.MANGAL -> "♂️ मंगळ — ऊर्जा, धाडस, कृती, स्पर्धा, जमीन, तांत्रिक काम, यंत्रणा, भाऊ/बंधू, शस्त्रक्रिया-सदृश पारंपरिक symbolism आणि संघर्षनिवारणाचा संकेत आहे. मंगळ गोचर कृतीची गरज वाढवू शकतो. योग्य वापरात तो काम वेगाने पुढे नेतो; चुकीच्या वापरात घाई, राग, वाद किंवा अनावश्यक risk वाढवू शकतो. म्हणून मंगळाच्या गोचरात ‘energy कुठे वापरायची?’ हा प्रश्न महत्त्वाचा आहे."
+    Graha.BUDH -> "☿️ बुध — बुद्धी, गणित, लेखन, बोलणे, व्यापार, accounting, analysis, data, negotiation आणि learning यांचा प्रमुख संकेत आहे. बुधाचा गोचर ज्या भावातून होतो तिथे माहिती, निर्णय, communication आणि calculation सक्रिय होतात. मजबूत संदर्भात deal-making, learning, planning आणि problem-solving सुधारू शकतात; तणावात गैरसमज, over-analysis, चुकीची गणना किंवा contradictory communication होऊ शकते."
+    Graha.GURU -> "♃ गुरु — ज्ञान, शिक्षक, सल्ला, विस्तार, धर्म/तत्त्वज्ञान, उच्च शिक्षण, संरक्षण, संपन्नता आणि व्यापक दृष्टीचा प्रमुख संकेत आहे. गुरु गोचर एखाद्या भावातील विषयाला विस्तार देतो असे पारंपरिक वाचन आहे. पण विस्तार म्हणजे नेहमीच लाभ नाही; कधी जबाबदारी, खर्च किंवा एखाद्या विषयाचा आकार वाढणे असेही होऊ शकते. म्हणून ‘काय वाढत आहे?’ हा प्रश्न गुरुच्या बाबतीत महत्त्वाचा आहे."
+    Graha.SHUKRA -> "♀️ शुक्र — संबंध, विवाह, समन्वय, कला, सौंदर्य, सुविधा, वाहन, भौतिक सुख, मूल्यव्यवस्था आणि आर्थिक आकर्षण यांचा प्रमुख संकेत आहे. शुक्राचा गोचर सामाजिक संपर्क, comfort आणि relationship themes सक्रिय करू शकतो. चांगल्या संदर्भात harmony, negotiation, design, luxury किंवा relationship support वाढू शकतो; असंतुलित संदर्भात खर्च, अति-सुखलोलुपता किंवा अपेक्षांचा ताण दिसू शकतो."
+    Graha.SHANI -> "♄ शनि — शिस्त, विलंब, कर्म, जबाबदारी, कामगार, सेवा, संरचना, नियम, दीर्घकालीन प्रयत्न, सीमारेषा आणि टिकाऊ परिणामांचा संकेत आहे. शनि ज्या भावातून जातो त्या भावातील गोष्टींकडे गांभीर्याने पाहण्याची वेळ येते. परिणाम उशिरा मिळू शकतो, पण योग्य पद्धतीने केलेला प्रयत्न अधिक टिकाऊ बनू शकतो. शनि ‘नकार’ पेक्षा ‘परीक्षा, संरचना आणि accountability’ या चौकटीत वाचणे अधिक अचूक आहे."
+    Graha.RAHU -> "☊ राहू — तीव्र इच्छा, unconventional मार्ग, परदेश, technology, मोठे scale, publicity, भ्रम, shortcuts आणि नवीन प्रयोग यांचा छाया-संकेत आहे. राहू एखाद्या भावात असताना त्या भावाची इच्छा किंवा भूक वाढू शकते. योग्य विवेक असेल तर innovation आणि मोठी संधी मिळू शकते; विवेक कमी असेल तर overreach, भ्रम, चुकीची माहिती किंवा अनावश्यक risk वाढू शकतो."
+    Graha.KETU -> "☋ केतू — विरक्ती, संशोधन, सूक्ष्म निरीक्षण, आध्यात्मिकता, detachment, अचानक कट, specialised knowledge आणि ‘याचा खरा अर्थ काय?’ असा प्रश्न विचारण्याची प्रवृत्ती यांचा संकेत आहे. केतू ज्या भावातून जातो तिथे काही वेळा बाह्य आकर्षण कमी होते आणि अंतर्मुखता वाढते. सकारात्मक स्थितीत deep research व concentration; असंतुलित स्थितीत confusion, disconnection किंवा काम अर्धवट सोडण्याची प्रवृत्ती दिसू शकते."
+}
+
+private fun planetHouseMeaning(g: Graha, h: Int): String {
+    val base = when(h) {
+        1 -> "1ला भाव स्वरूप, शरीर, व्यक्तिमत्त्व आणि सुरुवातीचा आहे."
+        2 -> "2रा भाव धन, संचय, कुटुंब, वाणी आणि आहाराशी संबंधित आहे."
+        3 -> "3रा भाव पराक्रम, प्रयत्न, communication, लेखन, marketing, भावंडे आणि छोटे प्रवास यांचा आहे."
+        4 -> "4था भाव घर, माता, सुख, मानसिक शांतता, शिक्षणाची पायाभरणी, जमीन/मालमत्ता आणि वाहन यांचा आहे."
+        5 -> "5वा भाव बुद्धी, शिक्षण, सर्जनशीलता, संतती, निर्णय आणि speculation यांचा आहे."
+        6 -> "6वा भाव रोग, सेवा, कर्ज, स्पर्धा, शत्रू आणि routine work यांचा आहे."
+        7 -> "7वा भाव विवाह, भागीदारी, clients, trade आणि public dealing यांचा आहे."
+        8 -> "8वा भाव अचानक बदल, संशोधन, गुप्त विषय, संयुक्त संसाधने आणि transformation यांचा आहे."
+        9 -> "9वा भाव भाग्य, उच्च ज्ञान, गुरु, तत्त्वज्ञान आणि दूरचा प्रवास यांचा आहे."
+        10 -> "10वा भाव कर्म, profession, पद, authority, reputation आणि public role यांचा आहे."
+        11 -> "11वा भाव लाभ, उत्पन्न, इच्छा पूर्ती, network, मित्र आणि मोठ्या संपर्कांचा आहे."
+        else -> "12वा भाव खर्च, परदेश, विश्रांती, एकांत, release आणि अंतर्मुखतेचा आहे."
+    }
+    return "${g.marathi} या भावातून जात असल्याने या भावाच्या विषयांवर त्याचे नैसर्गिक कारकत्व लागू होते. $base त्यामुळे मुख्य प्रश्न असा: ‘${g.marathi} ज्या गोष्टींचा कारक आहे त्या गोष्टी या भावाच्या विषयांशी कशा जोडल्या जात आहेत?’ उदाहरणार्थ, ग्रह पैसा/संबंध/कर्म/बुद्धीचा कारक असेल तर त्याचा भावानुसार परिणाम वेगळा दिसतो."
+}
+
+private fun planetSignMeaning(g: Graha, sign: String, lord: String): String = "गोचर रास ${sign} आहे आणि तिचा स्वामी ${lord} आहे. रास ही ग्रहाला अभिव्यक्तीचे वातावरण देते. ${sign} राशीचा स्वभाव, तत्त्व आणि गती ग्रहाच्या नैसर्गिक कारकत्वाला दिशा देतात. त्यामुळे ${g.marathi} ला फक्त ‘${sign} मध्ये’ म्हणून न वाचता ‘${g.marathi} चे कारकत्व + ${sign} चा स्वभाव + ${lord} ची जन्मस्थिती’ या chain ने वाचावे. जर राशीस्वामी मजबूत असेल तर त्या क्षेत्राला support मिळू शकतो; कमजोर/afflicted असल्यास friction वाढू शकतो."
+
+private fun planetBirthLink(g: Graha, house: Int, sign: String): String = "जन्मकुंडलीतील ${g.marathi} ${house}व्या भावात ${sign} राशीत आहे. त्यामुळे वर्तमान गोचर त्याच्या जन्मभूमिकेला activate करणारा trigger ठरू शकतो. जन्मग्रह कोणत्या भावांचा स्वामी आहे, त्याच्यावर कोणत्या ग्रहांची दृष्टी आहे, तो कोणत्या नक्षत्रात आहे आणि त्याची dignity काय आहे हे पुढील तपासणीचे मुद्दे आहेत. गोचर आणि जन्मस्थिती एकाच विषयावर repeated संकेत देत असतील तर interpretation अधिक मजबूत मानता येतो; परस्परविरोधी संकेत असतील तर मिश्र फलित आणि परिस्थितीनुसार परिणाम अपेक्षित असतो."
+
+private fun lifeDomainAnalysis(g: Graha, h: Int, sign: String): String = when(g) {
+    Graha.SURYA -> "जीवनक्षेत्र: सूर्याच्या गोचरात career/authority, वरिष्ठांशी संबंध, सरकारी किंवा formal कामे, प्रतिष्ठा, वडील/पितृतुल्य व्यक्ती, आत्मविश्वास, निर्णय आणि health-vitality यांचा संदर्भ घ्यावा. ${h}वा भाव हा या वेळी मुख्य stage आहे; ${sign} राशी त्या stage वर सूर्य कसा काम करतो ते ठरवते."
+    Graha.CHANDRA -> "जीवनक्षेत्र: चंद्राच्या गोचरात मनःस्थिती, घरातील वातावरण, माता, लोकसंपर्क, झोप, दैनंदिन सवयी, भावनिक निर्णय आणि public response हे विषय प्रमुख असतात. ${h}वा भाव मनाला कोणता अनुभव देतो आणि ${sign} रास त्या अनुभवाची शैली कशी बनवते हे पाहावे."
+    Graha.MANGAL -> "जीवनक्षेत्र: मंगळासाठी कामाची गती, technical activity, machinery, property, competition, initiative, physical effort, travel आणि conflict-management पाहावे. ${h}वा भाव ऊर्जा कुठे खर्च होते ते सांगतो; ${sign} रास ती ऊर्जा कोणत्या शैलीत व्यक्त होते ते सांगते."
+    Graha.BUDH -> "जीवनक्षेत्र: बुधासाठी business, accounts, communication, sales, writing, contracts, study, data आणि negotiation तपासा. ${h}वा भाव माहिती/व्यवहाराचा मुख्य क्षेत्र देतो; ${sign} रास thinking आणि communication ची शैली बदलते."
+    Graha.GURU -> "जीवनक्षेत्र: गुरुच्या गोचरात शिक्षण, सल्ला, expansion, finance, mentor support, children/knowledge, ethics आणि long-term planning तपासा. ${h}वा भाव कुठे विस्तार होतो ते सांगतो; ${sign} रास विस्ताराचा प्रकार ठरवते."
+    Graha.SHUKRA -> "जीवनक्षेत्र: शुक्रासाठी relationship, marriage, comfort, vehicle, design, luxury, negotiation, finance आणि social harmony पाहावी. ${h}वा भाव संबंध/सुखाचा कोणता भाग सक्रिय करतो आणि ${sign} रास त्या गोष्टींची expression कशी बदलते ते तपासा."
+    Graha.SHANI -> "जीवनक्षेत्र: शनि career responsibility, workload, systems, compliance, employees, debt/service, property structure आणि long-term commitments सक्रिय करू शकतो. ${h}वा भाव ‘कुठे accountability वाढते?’ हे सांगतो; ${sign} रास शिस्त कोणत्या शैलीत घ्यावी ते दाखवते."
+    Graha.RAHU -> "जीवनक्षेत्र: राहूसाठी technology, foreign links, online/public reach, unconventional business, ambition, sudden scale, experimentation आणि misinformation-risk तपासा. ${h}वा भाव इच्छा कुठे वाढते ते सांगतो; ${sign} रास त्या इच्छेचा मार्ग दाखवते."
+    Graha.KETU -> "जीवनक्षेत्र: केतूसाठी research, specialised skill, spiritual practice, detachment, hidden work, technical diagnosis आणि sudden disengagement तपासा. ${h}वा भाव कुठे बाह्य आसक्ती कमी होते ते सांगतो; ${sign} रास अंतर्मुखतेची दिशा देते."
+}
+
+private fun supportMitigation(g: Graha): String = when(g) {
+    Graha.SURYA -> "Support/mitigation: गुरु किंवा शुभ ग्रहांची दृष्टी, मजबूत सूर्य, योग्य 10वा/9वा भाव आणि सकारात्मक authority relationships सूर्याच्या कठीण बाजू कमी करू शकतात."
+    Graha.CHANDRA -> "Support/mitigation: मजबूत चंद्र, शुभ गुरु/शुक्र संबंध, स्थिर 4था भाव आणि चांगली routine चंद्राच्या भावनिक अस्थिरतेला संतुलित करू शकतात."
+    Graha.MANGAL -> "Support/mitigation: शिस्तबद्ध physical work, मजबूत बुधाने दिलेला विचारपूर्वक निर्णय, गुरुची शुभ दृष्टी आणि सुरक्षित procedure मंगळाच्या घाईचा उपयोगी मार्ग बनवू शकतात."
+    Graha.BUDH -> "Support/mitigation: लिखित communication, double-checking, मजबूत गुरुचा विवेक आणि स्पष्ट documentation बुधाच्या error-risk कमी करण्यास मदत करतात."
+    Graha.GURU -> "Support/mitigation: मजबूत 2रा/5वा/9वा/11वा भाव, शुभ गुरु-संबंध आणि disciplined finance गुरुच्या expansion ला टिकाऊ दिशा देतात."
+    Graha.SHUKRA -> "Support/mitigation: स्पष्ट boundaries, budget discipline, mutual respect आणि मजबूत 7वा/11वा/2रा भाव शुक्राच्या सुखकारक बाजूला अधिक स्थिर करतात."
+    Graha.SHANI -> "Support/mitigation: नियमितता, documentation, नियमांचे पालन, कौशल्यवृद्धी आणि realistic timelines शनीच्या विलंबाला productive structure मध्ये बदलतात."
+    Graha.RAHU -> "Support/mitigation: fact-checking, risk limits, transparent contracts, technical due diligence आणि गुरु/बुधाचा विवेक राहूच्या भ्रमकारी बाजूला नियंत्रण देतात."
+    Graha.KETU -> "Support/mitigation: स्पष्ट objective, documentation, research discipline आणि भावनिक घाई न करता निर्णय घेणे केतूच्या detachment ला specialised focus मध्ये रूपांतरित करू शकते."
+}
+
+private fun observationAndConclusion(g: Graha, h: Int, sign: String): String = when(g) {
+    Graha.SURYA -> "निरीक्षण: वरिष्ठांशी संवाद, authority decisions, सरकारी/औपचारिक कामे, self-confidence आणि energy level मध्ये काय बदलतो ते नोंदवा. निष्कर्षासाठी ego-clash पेक्षा responsibility आणि visibility दोन्ही मोजा."
+    Graha.CHANDRA -> "निरीक्षण: mood, sleep, घरचे वातावरण, लोकांशी प्रतिक्रिया आणि निर्णयातील भावनिकता नोंदवा. चंद्र जलद असल्याने एका दिवसाच्या अनुभवावर मोठा life-event निष्कर्ष काढू नका."
+    Graha.MANGAL -> "निरीक्षण: घाईचे निर्णय, machinery/vehicle handling, arguments, physical workload आणि property-related action याकडे लक्ष द्या. निष्कर्षात ऊर्जा productive झाली की conflict मध्ये गेली हे महत्त्वाचे."
+    Graha.BUDH -> "निरीक्षण: calls, messages, accounts, documents, sales, negotiations आणि learning efficiency नोंदवा. चुकीची माहिती आली तर ती कुठल्या communication chain मध्ये आली ते तपासा."
+    Graha.GURU -> "निरीक्षण: नवीन शिकण्याची संधी, mentor support, financial expansion, मोठे plans आणि जबाबदारी वाढणे नोंदवा. निष्कर्षात growth sustainable आहे का हे तपासा."
+    Graha.SHUKRA -> "निरीक्षण: संबंध, ग्राहक/भागीदारांशी harmony, खर्च, vehicle/comfort purchases आणि creative work नोंदवा. सुख वाढले तरी budget आणि expectations नियंत्रित आहेत का ते पाहा."
+    Graha.SHANI -> "निरीक्षण: pending work, deadlines, compliance, staff/workload, delays आणि long-term commitments नोंदवा. निष्कर्षात अडथळा कोणता आणि त्यातून तयार होणारी structure कोणती हे वेगळे करा."
+    Graha.RAHU -> "निरीक्षण: अचानक opportunity, online/foreign connection, technology, मोठी ambition आणि information quality तपासा. निष्कर्षात innovation आणि illusion यांची सीमा स्पष्ट ठेवा."
+    Graha.KETU -> "निरीक्षण: कोणत्या विषयापासून मन दूर होते, कोणत्या विषयात deep focus वाढतो आणि कुठे अचानक break होतो ते नोंदवा. निष्कर्षात detachment productive research आहे की avoidant withdrawal हे तपासा."
+}
+
 @Composable
 private fun FrameworkStudyPopup(
     title: String,
@@ -186,7 +404,10 @@ private fun FrameworkHome(profile: BirthProfile, onBack: () -> Unit, onSelect: (
                     TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
                     Text("🧠 Framework", color = FrameworkAccent, fontSize = 23.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    KundliReferenceButton(profile, textColor = FrameworkText)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        KundliReferenceButton(profile, textColor = FrameworkText)
+                        TransitAnalysisButton(profile, textColor = FrameworkText)
+                    }
                 }
                 Text("ग्रहस्थिती → प्रश्न → कारण → परिणाम → तुलना → अभ्यास", color = FrameworkSecondary,
                     fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), textAlign = TextAlign.Center)
@@ -519,12 +740,15 @@ private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: 
                     TextButton(onClick = onBack) { Text("← मागे", color = FrameworkText, fontSize = 16.sp) }
                     Text("${kind.icon} ${kind.title}", color = FrameworkAccent, fontSize = 21.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    OutlinedButton(
-                        onClick = { showKundliReference = true },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                        modifier = Modifier.height(38.dp)
-                    ) {
-                        Text("⚙ कुंडली", color = FrameworkText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(
+                            onClick = { showKundliReference = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(38.dp)
+                        ) {
+                            Text("⚙ कुंडली", color = FrameworkText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        TransitAnalysisButton(profile, textColor = FrameworkText)
                     }
                 }
                 Text("जन्मकुंडलीतील भाव = जन्मलग्नापासून  •  गोचर भाव = जन्म चंद्रराशीपासून",

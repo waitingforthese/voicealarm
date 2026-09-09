@@ -48,7 +48,10 @@ fun AaradhanaScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← परत", color = Color.White) }
                 Text("🕉️ नक्षत्र आराधना", color = Color(0xFFFFC83D), fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                KundliReferenceButton(profile, textColor = Color.White)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = Color.White)
+                    TransitAnalysisButton(profile, textColor = Color.White)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {

@@ -70,7 +70,10 @@ fun TodayPredictionScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← मागे", color = white) }
                 Text("🔮 आजचे भाकीत", color = gold, fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                KundliReferenceButton(profile, textColor = white)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = white)
+                    TransitAnalysisButton(profile, textColor = white)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {

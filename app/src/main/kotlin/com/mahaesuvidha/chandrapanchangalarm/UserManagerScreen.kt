@@ -56,7 +56,10 @@ fun UserManagerScreen(profile: BirthProfile, onBack: () -> Unit, onEdited: (Birt
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
                 Text("👥 User व्यवस्थापन", color = Color(0xFFFFC83D), fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                KundliReferenceButton(profile, textColor = Color.White)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = Color.White)
+                    TransitAnalysisButton(profile, textColor = Color.White)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {

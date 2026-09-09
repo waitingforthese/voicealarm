@@ -1138,7 +1138,10 @@ private fun ChandraSuryaHomeContent(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
-                KundliReferenceButton(profile, textColor = white)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = white)
+                    TransitAnalysisButton(profile, textColor = white)
+                }
                 Text("⚙️", fontSize = 25.sp, modifier = Modifier.clickable { showSettings = true })
             }
         }
@@ -2299,7 +2302,10 @@ private fun GhatChakraScreen(profile: BirthProfile, ghatChakra: GhatChakra, gend
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← मागे", color = Color.White) }
                 Text("⚠️ घट चक्र", color = Color(0xFFFF7777), fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                KundliReferenceButton(profile)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = Color.White)
+                    TransitAnalysisButton(profile, textColor = Color.White)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
@@ -2549,7 +2555,10 @@ private fun NakshatraGuidanceScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← मागे", color = white) }
                 Text("नक्षत्र मार्गदर्शन", color = white, fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                KundliReferenceButton(profile, textColor = white)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = white)
+                    TransitAnalysisButton(profile, textColor = white)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
@@ -2643,7 +2652,10 @@ private fun UpcomingBadTaraScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack) { Text("← मागे", color = white) }
                 Text("विपत / प्रत्यारी / वध आगामी", color = warning, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                KundliReferenceButton(profile, textColor = white)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KundliReferenceButton(profile, textColor = white)
+                    TransitAnalysisButton(profile, textColor = white)
+                }
             }
         }
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(12.dp)) {
