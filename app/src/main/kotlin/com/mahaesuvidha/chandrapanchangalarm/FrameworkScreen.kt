@@ -158,7 +158,7 @@ private fun TransitAnalysisPopup(
                             shape = RoundedCornerShape(14.dp)
                         ) {
                             Column(Modifier.padding(13.dp)) {
-                                Text("${frameworkPlanetEmoji(p.graha)} ${p.graha.marathi}", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                                Text("${frameworkPlanetEmoji(p.graha.marathi)} ${p.graha.marathi}", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                                 Text(
                                     "सध्या ${p.transit.rashi} • ${p.transit.house}वा भाव • ${p.transit.degrees}° • ${p.transit.nakshatra} • चरण ${p.transit.pada}",
                                     color = FrameworkAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
