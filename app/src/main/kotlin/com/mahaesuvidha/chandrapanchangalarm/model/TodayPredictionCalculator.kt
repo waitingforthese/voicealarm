@@ -1,10 +1,5 @@
 package com.mahaesuvidha.chandrapanchangalarm.model
 
-import swisseph.SweConst
-import swisseph.SweDate
-import swisseph.SwissEph
-import java.util.Calendar
-import java.util.TimeZone
 
 data class TransitPredictionRow(
     val graha: String,
@@ -175,47 +170,15 @@ object TodayPredictionCalculator {
         "साधक", "नैधन / वध", "मित्र", "परममित्र"
     )
 
-    private fun julianDay(millis: Long): Double {
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = millis }
-        val hour = cal.get(Calendar.HOUR_OF_DAY) +
-            cal.get(Calendar.MINUTE) / 60.0 +
-            cal.get(Calendar.SECOND) / 3600.0 +
-            cal.get(Calendar.MILLISECOND) / 3600000.0
-        return SweDate.getJulDay(
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH) + 1,
-            cal.get(Calendar.DAY_OF_MONTH),
-            hour,
-            SweDate.SE_GREG_CAL
-        )
-    }
-
-    private fun longitude(body: Int, millis: Long, swe: SwissEph): Double {
-        val xx = DoubleArray(6)
-        val serr = StringBuffer()
-        swe.swe_calc_ut(
-            julianDay(millis), body,
-            SweConst.SEFLG_SWIEPH or SweConst.SEFLG_SIDEREAL,
-            xx, serr
-        )
-        return xx[0].mod(360.0)
-    }
-
     private fun rashiIndex(longitude: Double): Int =
         (longitude / 30.0).toInt().coerceIn(0, 11)
 
     private fun houseFromMoon(moonIndex: Int, transitIndex: Int): Int =
         (transitIndex - moonIndex + 12) % 12 + 1
 
-    private fun planetBodies(): List<Pair<Graha, Int>> = listOf(
-        Graha.SURYA to SweConst.SE_SUN,
-        Graha.CHANDRA to SweConst.SE_MOON,
-        Graha.MANGAL to SweConst.SE_MARS,
-        Graha.BUDH to SweConst.SE_MERCURY,
-        Graha.GURU to SweConst.SE_JUPITER,
-        Graha.SHUKRA to SweConst.SE_VENUS,
-        Graha.SHANI to SweConst.SE_SATURN,
-        Graha.RAHU to SweConst.SE_TRUE_NODE
+    private fun planetBodies(): List<Graha> = listOf(
+        Graha.SURYA, Graha.CHANDRA, Graha.MANGAL, Graha.BUDH,
+        Graha.GURU, Graha.SHUKRA, Graha.SHANI, Graha.RAHU
     )
 
     private fun taraFor(birthNakshatra: String, currentNakshatra: Nakshatra): Pair<String, Int> {
@@ -259,15 +222,13 @@ object TodayPredictionCalculator {
         birthCoordinates: Pair<Double, Double>? = null
     ): TodayPrediction {
         val birthIndex = rashis.indexOfFirst { it.marathi == birthMoonRashi }.let { if (it < 0) 0 else it }
-        val swe = SwissEph().apply { swe_set_sid_mode(SweConst.SE_SIDM_LAHIRI, 0.0, 0.0) }
-
         val birthPositions = birthCoordinates?.let { (lat, lon) ->
             BirthChartCalculator.calculate(birthDate, birthTime, lat, lon)
         } ?: emptyMap()
 
         val rows = mutableListOf<TransitPredictionRow>()
-        planetBodies().forEach { (graha, body) ->
-            val idx = rashiIndex(longitude(body, now, swe))
+        planetBodies().forEach { graha ->
+            val idx = rashiIndex(LiveTransitCalculator.longitudeAt(graha, now))
             val house = houseFromMoon(birthIndex, idx)
             val rule = rules[graha]?.get(house) ?: Rule(0, "सामान्य")
             val birth = birthPositions[graha]

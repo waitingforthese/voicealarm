@@ -30,6 +30,8 @@ import com.mahaesuvidha.chandrapanchangalarm.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.floor
 
@@ -828,26 +830,27 @@ private fun NoteCard(title: String, text: String) {
 }
 
 private object FrameworkCalculator {
-    private val bodies = listOf(
-        Graha.SURYA to swisseph.SweConst.SE_SUN, Graha.CHANDRA to swisseph.SweConst.SE_MOON,
-        Graha.MANGAL to swisseph.SweConst.SE_MARS, Graha.BUDH to swisseph.SweConst.SE_MERCURY,
-        Graha.GURU to swisseph.SweConst.SE_JUPITER, Graha.SHUKRA to swisseph.SweConst.SE_VENUS,
-        Graha.SHANI to swisseph.SweConst.SE_SATURN, Graha.RAHU to swisseph.SweConst.SE_TRUE_NODE
-    )
 
     fun calculate(profile: BirthProfile, lat: Double, lon: Double, kind: FrameworkKind): List<FrameworkPlanet> {
         val birth = BirthChartCalculator.calculate(profile.birthDate, profile.birthTime, lat, lon)
         val moonIndex = Rashi.entries.indexOfFirst { it.marathi == profile.birthMoonRashi }.let { if (it >= 0) it else 0 }
-        val today = LocalDate.now()
-        val allBodies = bodies + (Graha.KETU to -1)
+        val nowMillis = System.currentTimeMillis()
+        val today = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(nowMillis), ZoneId.of("Asia/Kolkata")).toLocalDate()
+        val allBodies = Graha.entries
         val birthByHouse = birth.entries.groupBy { it.value.house }.mapValues { it.value.map { e -> e.key.marathi } }
-        return allBodies.map { (g, body) ->
+        val daySnapshots = (-3..2).associateWith { offset ->
+            val atMillis = LiveTransitCalculator.sameLocalClockMillis(nowMillis, offset.toLong())
+            atMillis to LiveTransitCalculator.positionsAt(atMillis)
+        }
+        return allBodies.map { g ->
             val bp = birth[g] ?: BirthChartCalculator.PlanetPosition(0, 1)
             val birthRashi = Rashi.entries[bp.rashiIndex]
             val birthNak = Nakshatra.entries[bp.nakshatraIndex]
             val birthInfo = JyotishMaster.getInfo(birthRashi, birthNak, bp.pada)
             val days = (-2..2).map { offset ->
-                day(moonIndex, g, body, today.plusDays(offset.toLong()), offset, kind, birthByHouse)
+                val snapshot = daySnapshots[offset]!!
+                day(moonIndex, g, today.plusDays(offset.toLong()), offset, kind, birthByHouse,
+                    snapshot.second, daySnapshots[offset - 1]?.second)
             }
             val now = days[2]
             val subject = subjects[g] ?: "ग्रहाशी संबंधित पारंपरिक विषय"
@@ -862,12 +865,10 @@ private object FrameworkCalculator {
         }
     }
 
-    private fun day(moonIndex: Int, g: Graha, body: Int, date: LocalDate, offset: Int, kind: FrameworkKind,
-                    birthByHouse: Map<Int, List<String>>): FrameworkDay {
-        val jd = julianDay(date, 12.0)
-        val swe = swisseph.SwissEph().apply { swe_set_sid_mode(swisseph.SweConst.SE_SIDM_LAHIRI, 0.0, 0.0) }
-        val rawLongitude = if (body == -1) (longitude(swe, jd, swisseph.SweConst.SE_TRUE_NODE) + 180.0) % 360.0
-        else longitude(swe, jd, body)
+    private fun day(moonIndex: Int, g: Graha, date: LocalDate, offset: Int, kind: FrameworkKind,
+                    birthByHouse: Map<Int, List<String>>, transitPositions: Map<Graha, Double>,
+                    previousTransitPositions: Map<Graha, Double>?): FrameworkDay {
+        val rawLongitude = transitPositions[g] ?: 0.0
         val idx = rashiIndex(rawLongitude)
         val house = (idx - moonIndex + 12) % 12 + 1
         val nakIndex = (rawLongitude / (360.0 / 27.0)).toInt().coerceIn(0, 26)
@@ -881,7 +882,7 @@ private object FrameworkCalculator {
         val change = when (offset) {
             0 -> "आजची आधारस्थिती"
             else -> {
-                val prev = previousDay(moonIndex, g, body, date.minusDays(1), kind, birthByHouse)
+                val prev = previousDay(moonIndex, g, date.minusDays(1), kind, birthByHouse, previousTransitPositions)
                 buildChange(prev, house, idx, nak.marathi, pada)
             }
         }
@@ -890,8 +891,23 @@ private object FrameworkCalculator {
             aspectHouses, aspectPlanets, topic, change)
     }
 
-    private fun previousDay(moonIndex: Int, g: Graha, body: Int, date: LocalDate, kind: FrameworkKind,
-                            birthByHouse: Map<Int, List<String>>): FrameworkDay = day(moonIndex, g, body, date, 0, kind, birthByHouse)
+    private fun previousDay(moonIndex: Int, g: Graha, date: LocalDate, kind: FrameworkKind,
+                            birthByHouse: Map<Int, List<String>>, previousTransitPositions: Map<Graha, Double>?): FrameworkDay {
+        val positions = previousTransitPositions ?: emptyMap()
+        val rawLongitude = positions[g] ?: 0.0
+        val idx = rashiIndex(rawLongitude)
+        val house = (idx - moonIndex + 12) % 12 + 1
+        val nakIndex = (rawLongitude / (360.0 / 27.0)).toInt().coerceIn(0, 26)
+        val nak = Nakshatra.entries[nakIndex]
+        val pada = (((rawLongitude % (360.0 / 27.0)) / (360.0 / 108.0)).toInt() + 1).coerceIn(1, 4)
+        val info = JyotishMaster.getInfo(Rashi.entries[idx], nak, pada)
+        val aspectHouses = aspectHouses(g, house)
+        val aspectText = if (aspectHouses.isEmpty()) "—" else aspectHouses.joinToString(", ") { "${it}वा भाव" }
+        val aspectPlanets = aspectHouses.flatMap { birthByHouse[it].orEmpty() }.distinct().joinToString(", ").ifBlank { "त्या भावात जन्मग्रह नाही" }
+        return FrameworkDay(date, Rashi.entries[idx].marathi, house, nak.marathi, pada, info.nakshatraLord,
+            info.navamshaRashi, info.navamshaLord, info.rashiLord, degreeText(rawLongitude), aspectText,
+            aspectHouses, aspectPlanets, houseMeaning(house, kind), "तुलनेसाठी मागील दिवसाची स्थिती")
+    }
 
     private fun buildChange(prev: FrameworkDay, house: Int, idx: Int, nak: String, pada: Int): String {
         val changes = mutableListOf<String>()
@@ -1276,7 +1292,5 @@ private object FrameworkCalculator {
         "अश्विनी"->"वेग, आरंभ, उपचार/चपळता"; "भरणी"->"जबाबदारी, धारणशक्ती, परिवर्तन"; "कृत्तिका"->"शुद्धीकरण, निर्णय, तीक्ष्णता"; "रोहिणी"->"वृद्धी, आकर्षण, निर्मिती"; "मृगशीर्ष"->"शोध, उत्सुकता, प्रवास"; "आर्द्रा"->"तीव्र बदल, संशोधन, disruption"; "पुनर्वसू"->"पुनरागमन, पुनर्बांधणी, विस्तार"; "पुष्य"->"पोषण, शिस्त, संरक्षण"; "आश्लेषा"->"गूढता, रणनीती, अंतर्मुखता"; "मघा"->"पूर्वज, प्रतिष्ठा, अधिकार"; "पूर्वाफाल्गुनी"->"सुख, संबंध, सर्जनशीलता"; "उत्तराफाल्गुनी"->"करार, जबाबदारी, स्थैर्य"; "हस्त"->"कौशल्य, नियंत्रण, हस्तकौशल्य"; "चित्रा"->"रचना, सौंदर्य, सर्जनशीलता"; "स्वाती"->"स्वातंत्र्य, व्यापार, adaptability"; "विशाखा"->"ध्येय, विस्तार, स्पर्धात्मक साध्य"; "अनुराधा"->"मैत्री, नेटवर्क, devotion"; "ज्येष्ठा"->"जबाबदारी, संरक्षण, वरिष्ठता"; "मूळ"->"मुळाशी जाणे, संशोधन, परिवर्तन"; "पूर्वाषाढा"->"प्रेरणा, विजय, प्रभाव"; "उत्तराषाढा"->"स्थैर्य, नेतृत्व, दीर्घकालीन यश"; "श्रवण"->"ऐकणे, शिक्षण, माहिती"; "धनिष्ठा"->"संसाधने, ताल, समूह"; "शतभिषा"->"उपचार, संशोधन, गोपनीयता"; "पूर्वाभाद्रपदा"->"तीव्र आदर्श, परिवर्तन, तपस्या"; "उत्तराभाद्रपदा"->"स्थैर्य, खोल विचार, संयम"; "रेवती"->"मार्गदर्शन, प्रवास, पूर्णता"; else->"नक्षत्राचे पारंपरिक विषय"
     }
 
-    private fun longitude(swe: swisseph.SwissEph, jd: Double, body: Int): Double { val xx=DoubleArray(6); swe.swe_calc_ut(jd, body, swisseph.SweConst.SEFLG_SWIEPH or swisseph.SweConst.SEFLG_SIDEREAL, xx, StringBuffer()); return ((xx[0] % 360)+360)%360 }
     private fun rashiIndex(v: Double) = (v/30.0).toInt().coerceIn(0,11)
-    private fun julianDay(date: LocalDate, hour: Double): Double { val cal=java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata")); cal.set(date.year,date.monthValue-1,date.dayOfMonth,12,0,0); cal.set(java.util.Calendar.MILLISECOND,0); return swisseph.SweDate.getJulDay(cal.get(java.util.Calendar.YEAR),cal.get(java.util.Calendar.MONTH)+1,cal.get(java.util.Calendar.DAY_OF_MONTH),hour,swisseph.SweDate.SE_GREG_CAL) }
 }
