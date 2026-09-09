@@ -91,6 +91,31 @@ private data class FrameworkPlanet(
 
 
 @Composable
+fun TransitAnalysisDialogHost(
+    profile: BirthProfile,
+    show: Boolean,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var coords by remember(profile.birthPlace) { mutableStateOf<Pair<Double, Double>?>(null) }
+    LaunchedEffect(profile.birthPlace) {
+        coords = withContext(Dispatchers.IO) {
+            runCatching {
+                if (!Geocoder.isPresent()) null else Geocoder(context, java.util.Locale.getDefault())
+                    .getFromLocationName(profile.birthPlace, 1)?.firstOrNull()?.let { it.latitude to it.longitude }
+            }.getOrNull()
+        }
+    }
+    val data = remember(profile, coords) {
+        if (coords == null) emptyList()
+        else FrameworkCalculator.calculate(profile, coords!!.first, coords!!.second, FrameworkKind.MEDICAL)
+    }
+    if (show && data.isNotEmpty()) {
+        TransitAnalysisPopup(data, onDismiss)
+    }
+}
+
+@Composable
 fun TransitAnalysisButton(
     profile: BirthProfile,
     textColor: Color = Color.White
@@ -361,6 +386,7 @@ fun KundliReferenceButton(
 ) {
     val context = LocalContext.current
     var show by remember(profile) { mutableStateOf(false) }
+    var showTransit by remember(profile) { mutableStateOf(false) }
     var coords by remember(profile.birthPlace) { mutableStateOf<Pair<Double, Double>?>(null) }
     LaunchedEffect(profile.birthPlace) {
         coords = withContext(Dispatchers.IO) {
@@ -387,7 +413,19 @@ fun KundliReferenceButton(
         Text("▣ कुंडली", color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
     if (show && birth.isNotEmpty()) {
-        KundliReferencePopup(birth, transit) { show = false }
+        KundliReferencePopup(
+            birth = birth,
+            transit = transit,
+            onDismiss = { show = false },
+            onOpenTransit = { showTransit = true }
+        )
+    }
+    if (showTransit) {
+        TransitAnalysisDialogHost(
+            profile = profile,
+            show = true,
+            onDismiss = { showTransit = false }
+        )
     }
 }
 
@@ -446,7 +484,8 @@ private fun FrameworkHome(profile: BirthProfile, onBack: () -> Unit, onSelect: (
 private fun KundliReferencePopup(
     birth: Map<Graha, BirthChartCalculator.PlanetPosition>,
     transit: Map<Graha, FrameworkDay>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenTransit: () -> Unit
 ) {
     val ascRashiIndex = remember(birth) {
         birth[Graha.CHANDRA]?.let { moon ->
@@ -486,6 +525,12 @@ private fun KundliReferencePopup(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
+                OutlinedButton(
+                    onClick = onOpenTransit,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                ) {
+                    Text("📊 गोचर विश्लेषण उघडा", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
                 KundliChartCard(
                     title = "जन्मलग्न कुंडली (D-1)",
                     subtitle = "भाव लग्नापासून • लग्न : ${Rashi.entries[ascRashiIndex].marathi}",
@@ -708,6 +753,7 @@ private fun NorthIndianKundliCanvas(
 private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: () -> Unit) {
     val context = LocalContext.current
     var showKundliReference by remember { mutableStateOf(false) }
+    var showTransitAnalysis by remember { mutableStateOf(false) }
     var coords by remember(profile.birthPlace) { mutableStateOf<Pair<Double, Double>?>(null) }
     LaunchedEffect(profile.birthPlace) {
         coords = withContext(Dispatchers.IO) {
@@ -727,8 +773,18 @@ private fun FrameworkDetail(profile: BirthProfile, kind: FrameworkKind, onBack: 
         data.associate { it.graha to it.transit }
     }
     if (showKundliReference && birthChart.isNotEmpty()) {
-        KundliReferencePopup(birthChart, transitReference) { showKundliReference = false }
+        KundliReferencePopup(
+            birth = birthChart,
+            transit = transitReference,
+            onDismiss = { showKundliReference = false },
+            onOpenTransit = { showTransitAnalysis = true }
+        )
     }
+    TransitAnalysisDialogHost(
+        profile = profile,
+        show = showTransitAnalysis,
+        onDismiss = { showTransitAnalysis = false }
+    )
     Column(Modifier.fillMaxSize().background(FrameworkBg).statusBarsPadding().navigationBarsPadding()) {
         Surface(
             modifier = Modifier.fillMaxWidth(),

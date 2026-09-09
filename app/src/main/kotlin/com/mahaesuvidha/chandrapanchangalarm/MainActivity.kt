@@ -980,6 +980,7 @@ private fun ChandraSuryaHomeContent(
     var showTodayPrediction by remember { mutableStateOf(false) }
     var showFramework by remember { mutableStateOf(false) }
     var showUserManager by remember { mutableStateOf(false) }
+    var showTransitAnalysis by remember { mutableStateOf(false) }
 
     if (showFramework) {
         BackHandler { showFramework = false }
@@ -1038,6 +1039,12 @@ private fun ChandraSuryaHomeContent(
         )
         return
     }
+
+    TransitAnalysisDialogHost(
+        profile = profile,
+        show = showTransitAnalysis,
+        onDismiss = { showTransitAnalysis = false }
+    )
 
     if (showGuidance) {
         BackHandler { showGuidance = false }
@@ -1140,7 +1147,6 @@ private fun ChandraSuryaHomeContent(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     KundliReferenceButton(profile, textColor = white)
-                    TransitAnalysisButton(profile, textColor = white)
                 }
                 Text("⚙️", fontSize = 25.sp, modifier = Modifier.clickable { showSettings = true })
             }
@@ -1174,6 +1180,7 @@ private fun ChandraSuryaHomeContent(
         FeatureNavigationButton("🔮 आजचे भाकीत", "चंद्र कुंडलीवर आधारित गोचर भाकीत", Color(0xFF7C4DFF)) { showTodayPrediction = true }
         FeatureNavigationButton("🧠 Framework", "Medical • Business • Educational • Vastushastra", Color(0xFF4DA3FF)) { showFramework = true }
         FeatureNavigationButton("👥 User व्यवस्थापन", "User बदलणे • Edit • Delete", Color(0xFF66BB6A)) { showUserManager = true }
+        FeatureNavigationButton("📊 गोचर विश्लेषण", "९ ग्रहांचे संपूर्ण गोचर विश्लेषण • सुमारे ९०००+ शब्द", Color(0xFFFFA726)) { showTransitAnalysis = true }
         FeatureNavigationButton("🔴 विपत / प्रत्यारी / वध आगामी", "आगामी अशुभ तारांचा स्वतंत्र आढावा", Color(0xFFE53935)) { showBadTara = true }
 
         Spacer(Modifier.height(8.dp))
