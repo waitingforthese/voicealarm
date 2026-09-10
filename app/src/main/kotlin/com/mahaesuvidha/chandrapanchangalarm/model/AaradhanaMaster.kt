@@ -78,6 +78,18 @@ object AaradhanaMaster {
         "किंस्तुघ्न" to AaradhanaInfo("सूर्य", "ॐ सूर्याय नमः")
     )
 
+    fun forPlanet(graha: Graha): AaradhanaInfo = when (graha) {
+        Graha.SURYA -> AaradhanaInfo("सूर्य", "ॐ सूर्याय नमः")
+        Graha.CHANDRA -> AaradhanaInfo("चंद्र", "ॐ सोमाय नमः")
+        Graha.MANGAL -> AaradhanaInfo("मंगळ", "ॐ भौमाय नमः")
+        Graha.BUDH -> AaradhanaInfo("बुध", "ॐ बुधाय नमः")
+        Graha.GURU -> AaradhanaInfo("गुरु", "ॐ बृहस्पतये नमः")
+        Graha.SHUKRA -> AaradhanaInfo("शुक्र", "ॐ शुक्राय नमः")
+        Graha.SHANI -> AaradhanaInfo("शनि", "ॐ शनैश्चराय नमः")
+        Graha.RAHU -> AaradhanaInfo("राहू", "ॐ राहवे नमः")
+        Graha.KETU -> AaradhanaInfo("केतू", "ॐ केतवे नमः")
+    }
+
     fun forNakshatra(name: String): AaradhanaInfo = nakshatra[name] ?: AaradhanaInfo("ईश्वर", "ॐ नमः शिवाय")
     fun forYoga(name: String): AaradhanaInfo = yoga[name] ?: AaradhanaInfo("ईश्वर", "ॐ नमः शिवाय")
     fun forKarana(name: String): AaradhanaInfo = karana[name] ?: AaradhanaInfo("ईश्वर", "ॐ नमः शिवाय")

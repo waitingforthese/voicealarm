@@ -118,6 +118,7 @@ class AlarmScheduler(
         val location = LocationPrefs(context)
 
         scheduleSpecialAaradhana()
+        schedulePlanetaryTaraAaradhana()
 
         // Personalized Nakshatra Guidance: the change notification and the
         // 3-hour reminder use the same live Nakshatra/Tara-Bala calculation
@@ -285,6 +286,33 @@ class AlarmScheduler(
             )
         } else {
             cancel(21); cancel(22); cancel(23); cancel(24); cancel(26); cancel(27)
+        }
+    }
+
+    private fun schedulePlanetaryTaraAaradhana() {
+        val ap = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(context.applicationContext)
+        val profile = BirthProfileStore.load(context.applicationContext)
+        if (!ap.planetaryTaraAaradhana || profile == null || profile.birthNakshatra.isBlank()) {
+            for (id in 341..349) cancel(id)
+            return
+        }
+        val rows = runCatching {
+            com.mahaesuvidha.chandrapanchangalarm.model.PlanetaryTaraAaradhanaCalculator.calculate(profile.birthNakshatra)
+        }.getOrNull() ?: return
+        rows.forEach { row ->
+            val id = 341 + row.planet.ordinal
+            val enabled = ap.isPlanetaryTaraEnabled(row.planet.name)
+            val at = row.nextWarningStartMillis
+            if (enabled && at > System.currentTimeMillis()) {
+                reconcile(
+                    id = id, enabled = true, at = at,
+                    title = "⚠️ ${row.planet.marathi} — ${row.tara} तारा आराधना",
+                    message = "${row.planet.marathi} ${row.nakshatra} नक्षत्रात प्रवेश करणार आहे.",
+                    soundResource = "nakshatra"
+                )
+            } else {
+                cancel(id)
+            }
         }
     }
 
@@ -681,6 +709,7 @@ class AlarmScheduler(
             cancel(id)
         }
         for (id in 131..133) cancel(id)
+        for (id in 341..349) cancel(id)
 
         // Test alarms
         cancel(99)

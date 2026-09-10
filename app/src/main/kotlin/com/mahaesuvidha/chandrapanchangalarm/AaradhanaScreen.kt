@@ -26,7 +26,8 @@ import com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs
 fun AaradhanaScreen(
     profile: BirthProfile,
     panchang: PanchangState,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenPlanetaryTara: (() -> Unit)? = null
 ) {
     BackHandler(onBack = onBack)
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -76,6 +77,19 @@ fun AaradhanaScreen(
                 MantraRow("🌟 नक्षत्र", moon.nakshatra.marathi, nakInfo.deity, nakInfo.mantra)
                 MantraRow("🕉️ योग", panchang.yoga, yogaInfo.deity, yogaInfo.mantra)
                 MantraRow("🔱 करण", panchang.karana, karanaInfo.deity, karanaInfo.mantra)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10253A))) {
+            Column(Modifier.padding(14.dp)) {
+                Text("⚠️ ग्रह तारा आराधना", color = Color(0xFFFFC83D), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("सूर्य ते केतू या ९ गोचर ग्रहांसाठी जन्म नक्षत्रापासून विपत / प्रत्यारी / वध तारा-नक्षत्र शोधा. नक्षत्राची सुरुवात व समाप्त वेळ आणि स्वतंत्र Alarm सेट करता येईल.", color = Color.LightGray, fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                if (onOpenPlanetaryTara != null) {
+                    Button(onClick = onOpenPlanetaryTara, modifier = Modifier.fillMaxWidth()) {
+                        Text("⚠️ ग्रह तारा आराधना उघडा", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
         Spacer(Modifier.height(10.dp))

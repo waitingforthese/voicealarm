@@ -981,6 +981,7 @@ private fun ChandraSuryaHomeContent(
     var showFramework by remember { mutableStateOf(false) }
     var showUserManager by remember { mutableStateOf(false) }
     var showTransitAnalysis by remember { mutableStateOf(false) }
+    var showPlanetaryTaraAaradhana by remember { mutableStateOf(false) }
 
     if (showFramework) {
         BackHandler { showFramework = false }
@@ -1004,6 +1005,15 @@ private fun ChandraSuryaHomeContent(
         return
     }
 
+    if (showPlanetaryTaraAaradhana) {
+        BackHandler { showPlanetaryTaraAaradhana = false }
+        PlanetaryTaraAaradhanaScreen(
+            profile = profile,
+            onBack = { showPlanetaryTaraAaradhana = false }
+        )
+        return
+    }
+
     if (showTodayPrediction) {
         BackHandler { showTodayPrediction = false }
         TodayPredictionScreen(
@@ -1019,7 +1029,8 @@ private fun ChandraSuryaHomeContent(
         AaradhanaScreen(
             profile = profile,
             panchang = panchangState,
-            onBack = { showAaradhana = false }
+            onBack = { showAaradhana = false },
+            onOpenPlanetaryTara = { showAaradhana = false; showPlanetaryTaraAaradhana = true }
         )
         return
     }
@@ -1181,6 +1192,7 @@ private fun ChandraSuryaHomeContent(
         FeatureNavigationButton("🧠 Framework", "Medical • Business • Educational • Vastushastra", Color(0xFF4DA3FF)) { showFramework = true }
         FeatureNavigationButton("👥 User व्यवस्थापन", "User बदलणे • Edit • Delete", Color(0xFF66BB6A)) { showUserManager = true }
         FeatureNavigationButton("📊 गोचर विश्लेषण", "९ ग्रहांचे संपूर्ण गोचर विश्लेषण • सुमारे ९०००+ शब्द", Color(0xFFFFA726)) { showTransitAnalysis = true }
+        FeatureNavigationButton("⚠️ ग्रह तारा आराधना", "९ ग्रहांचे विपत • प्रत्यारी • वध नक्षत्र + स्वतंत्र Alarm", Color(0xFFE53935)) { showPlanetaryTaraAaradhana = true }
         FeatureNavigationButton("🔴 विपत / प्रत्यारी / वध आगामी", "आगामी अशुभ तारांचा स्वतंत्र आढावा", Color(0xFFE53935)) { showBadTara = true }
 
         Spacer(Modifier.height(8.dp))

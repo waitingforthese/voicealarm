@@ -19,6 +19,8 @@ import com.mahaesuvidha.chandrapanchangalarm.model.LivePanchangCalculator
 import com.mahaesuvidha.chandrapanchangalarm.model.LiveSunCalculator
 import com.mahaesuvidha.chandrapanchangalarm.model.NakshatraGuidanceCalculator
 import com.mahaesuvidha.chandrapanchangalarm.model.AaradhanaMaster
+import com.mahaesuvidha.chandrapanchangalarm.model.PlanetaryTaraAaradhanaCalculator
+import com.mahaesuvidha.chandrapanchangalarm.model.Graha
 import com.mahaesuvidha.chandrapanchangalarm.settings.AlarmPrefs
 import com.mahaesuvidha.chandrapanchangalarm.settings.LocationPrefs
 import java.text.SimpleDateFormat
@@ -77,6 +79,31 @@ class AlarmReceiver : BroadcastReceiver() {
             showNakshatraGuidanceNotification(context, id, eventAt)
         } else {
             showNotification(context, title, message, id, eventAt)
+        }
+
+        if (id in 341..349) {
+            val pendingResult = goAsync()
+            val appContext = context.applicationContext
+            Thread {
+                try {
+                    val profile = BirthProfileStore.load(appContext)
+                    val planet = Graha.entries[(id - 341).coerceIn(0, Graha.entries.lastIndex)]
+                    val mantra = AaradhanaMaster.forPlanet(planet).mantra
+                    AaradhanaVoiceSession.speakRepeated(
+                        appContext, id, mantra,
+                        com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext).specialJapaCount,
+                        pendingResult
+                    ) {
+                        AlarmScheduler(appContext).scheduleAll()
+                        runCatching { if (wakeLock.isHeld) wakeLock.release() }
+                    }
+                } catch (t: Throwable) {
+                    android.util.Log.e("LifeAlarm", "Planetary Tara Aaradhana failed", t)
+                    pendingResult.finish()
+                    runCatching { if (wakeLock.isHeld) wakeLock.release() }
+                }
+            }.start()
+            return
         }
 
         val aaradhanaChange = id in 131..133
@@ -255,6 +282,7 @@ class AlarmReceiver : BroadcastReceiver() {
             2 -> { val s = LiveMoonCalculator.getCurrentMoonState(); val a = AaradhanaMaster.forNakshatra(s.nakshatra.marathi); "\n🙏 अधिदेवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
             22 -> { val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(context).latitude, LocationPrefs(context).longitude); val a = AaradhanaMaster.forYoga(p.yoga); "\n🙏 अधिदेवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
             23 -> { val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(context).latitude, LocationPrefs(context).longitude); val a = AaradhanaMaster.forKarana(p.karana); "\n🙏 अधिदेवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
+            in 341..349 -> { val planet = Graha.entries[(id - 341).coerceIn(0, Graha.entries.lastIndex)]; val a = AaradhanaMaster.forPlanet(planet); "\n⚠️ तारा आराधना: विपत / प्रत्यारी / वध\n🙏 देवता: ${a.deity}\n📿 मंत्र: ${a.mantra}" }
             else -> ""
         }
         val deleteIntent = Intent(context, AaradhanaStopReceiver::class.java).apply {
@@ -520,6 +548,16 @@ private object VoiceAnnouncement {
                         27, 212 -> "नमस्कार! लग्नामध्ये बदल झाला आहे. आता ${p.lagna} लग्न सुरू झाले आहे. ${until(p.nextLagnaMillis)}"
                         else -> "नमस्कार! $fallback"
                     }
+                }
+                in 341..349 -> {
+                    val profile = BirthProfileStore.load(context)
+                    val planet = Graha.entries[(id - 341).coerceIn(0, Graha.entries.lastIndex)]
+                    val row = profile?.birthNakshatra?.takeIf { it.isNotBlank() }?.let { birth ->
+                        PlanetaryTaraAaradhanaCalculator.calculate(birth).firstOrNull { it.planet == planet }
+                    }
+                    if (row != null) {
+                        "नमस्कार! ${planet.marathi} गोचर ग्रह ${row.nakshatra} नक्षत्रात आला आहे. सध्या ${row.tara} तारा आहे. नक्षत्र ${PlanetaryTaraAaradhanaCalculator.format(row.startMillis)} ते ${PlanetaryTaraAaradhanaCalculator.format(row.endMillis)} आहे."
+                    } else "नमस्कार! ${planet.marathi} ग्रह तारा आराधना सुरू आहे."
                 }
                 214 -> "नमस्कार! आजच्या वेळेची चाचणी आहे. हा संदेश ${formatEventTiming(eventAt)} या वेळेसाठी आहे."
                 215 -> "नमस्कार! उद्याच्या वेळेची चाचणी आहे. हा संदेश ${formatEventTiming(eventAt)} या वेळेसाठी आहे."

@@ -47,6 +47,18 @@ class AaradhanaPrefs(private val context: Context) {
         get() = prefs.getBoolean(key("karana_change_aaradhana"), true)
         set(value) = prefs.edit().putBoolean(key("karana_change_aaradhana"), value).apply()
 
+    /** Independent per-planet Vipat/Pratyari/Vadha Tara Aaradhana switches. */
+    var planetaryTaraAaradhana: Boolean
+        get() = prefs.getBoolean(key("planetary_tara_aaradhana"), false)
+        set(value) = prefs.edit().putBoolean(key("planetary_tara_aaradhana"), value).apply()
+
+    fun isPlanetaryTaraEnabled(graha: String): Boolean =
+        prefs.getBoolean(key("planetary_tara_${graha}"), false)
+
+    fun setPlanetaryTaraEnabled(graha: String, enabled: Boolean) {
+        prefs.edit().putBoolean(key("planetary_tara_${graha}"), enabled).apply()
+    }
+
     /** TTS speech rate for Aaradhana; lower values produce slower, clearer chanting. */
     var speechRate: Float
         get() = prefs.getFloat(key("speech_rate"), 0.72f).coerceIn(0.35f, 0.90f)
