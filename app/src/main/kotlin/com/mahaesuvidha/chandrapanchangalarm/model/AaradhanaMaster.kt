@@ -1,7 +1,14 @@
 package com.mahaesuvidha.chandrapanchangalarm.model
 
 /** Traditional devotional mappings used by the Aaradhana feature. */
-data class AaradhanaInfo(val deity: String, val mantra: String)
+data class AaradhanaInfo(
+    val deity: String,
+    val mantra: String,
+    /** Scholarly/reference note for the selected daily-japa text. */
+    val source: String = "पारंपरिक ग्रह-जप संदर्भ",
+    /** Human-readable pronunciation guide; kept separate from Sanskrit display text. */
+    val pronunciation: String = ""
+)
 
 object AaradhanaMaster {
     private val nakshatra = mapOf(
@@ -78,16 +85,24 @@ object AaradhanaMaster {
         "किंस्तुघ्न" to AaradhanaInfo("सूर्य", "ॐ सूर्याय नमः")
     )
 
+    /**
+     * Short daily-japa set selected for the app.
+     *
+     * These are the commonly published moola/samanya forms, cross-checked against
+     * established Navagraha mantra collections. They are intentionally kept separate
+     * from longer Vedic/tantric prayoga texts so the daily Tara Aaradhana remains
+     * practical and the TTS pronunciation remains stable.
+     */
     fun forPlanet(graha: Graha): AaradhanaInfo = when (graha) {
-        Graha.SURYA -> AaradhanaInfo("सूर्य", "ॐ सूर्याय नमः")
-        Graha.CHANDRA -> AaradhanaInfo("चंद्र", "ॐ सोमाय नमः")
-        Graha.MANGAL -> AaradhanaInfo("मंगळ", "ॐ भौमाय नमः")
-        Graha.BUDH -> AaradhanaInfo("बुध", "ॐ बुधाय नमः")
-        Graha.GURU -> AaradhanaInfo("गुरु", "ॐ बृहस्पतये नमः")
-        Graha.SHUKRA -> AaradhanaInfo("शुक्र", "ॐ शुक्राय नमः")
-        Graha.SHANI -> AaradhanaInfo("शनि", "ॐ शनैश्चराय नमः")
-        Graha.RAHU -> AaradhanaInfo("राहू", "ॐ राहवे नमः")
-        Graha.KETU -> AaradhanaInfo("केतू", "ॐ केतवे नमः")
+        Graha.SURYA -> AaradhanaInfo("सूर्य", "ॐ घृणि सूर्याय नमः", "सूर्य सामान्य/मूल मंत्र — Drik Panchang; Navagraha collections cross-check", "ॐ घृणि सूर्याय नमः")
+        Graha.CHANDRA -> AaradhanaInfo("चंद्र", "ॐ सोम सोमाय नमः", "चंद्र मूल मंत्र — Drik Panchang", "ॐ सोम सोमाय नमः")
+        Graha.MANGAL -> AaradhanaInfo("मंगळ", "ॐ अं अंगारकाय नमः", "मंगळ मूल मंत्र — Drik Panchang", "ॐ अं अंगारकाय नमः")
+        Graha.BUDH -> AaradhanaInfo("बुध", "ॐ बुं बुधाय नमः", "बुध मूल मंत्र — Drik Panchang", "ॐ बुं बुधाय नमः")
+        Graha.GURU -> AaradhanaInfo("गुरु", "ॐ बृं बृहस्पतये नमः", "बृहस्पति मूल मंत्र — पारंपरिक Brihaspati mantra reference; cross-checked with Navagraha sources", "ॐ बृं बृहस्पतये नमः")
+        Graha.SHUKRA -> AaradhanaInfo("शुक्र", "ॐ शुं शुक्राय नमः", "शुक्र मूल मंत्र — Drik Panchang", "ॐ शुं शुक्राय नमः")
+        Graha.SHANI -> AaradhanaInfo("शनि", "ॐ शं शनैश्चराय नमः", "शनि मूल मंत्र — Drik Panchang", "ॐ शं शनैश्चराय नमः")
+        Graha.RAHU -> AaradhanaInfo("राहू", "ॐ रां राहवे नमः", "राहु मूल मंत्र — Drik Panchang", "ॐ रां राहवे नमः")
+        Graha.KETU -> AaradhanaInfo("केतू", "ॐ कें केतवे नमः", "केतु मूल मंत्र — Drik Panchang", "ॐ कें केतवे नमः")
     }
 
     fun forNakshatra(name: String): AaradhanaInfo = nakshatra[name] ?: AaradhanaInfo("ईश्वर", "ॐ नमः शिवाय")

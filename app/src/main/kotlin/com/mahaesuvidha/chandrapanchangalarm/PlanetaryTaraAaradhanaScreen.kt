@@ -92,6 +92,7 @@ fun PlanetaryTaraAaradhanaScreen(profile: BirthProfile, onBack: () -> Unit) {
                         Text("नक्षत्र समाप्त: ${PlanetaryTaraAaradhanaCalculator.format(row.endMillis)}", color = Color.White, fontSize = 13.sp)
                         if (row.nextWarningStartMillis > 0L) Text("पुढील ${"विपत / प्रत्यारी / वध"} सुरुवात: ${PlanetaryTaraAaradhanaCalculator.format(row.nextWarningStartMillis)}", color = Color(0xFFFFC83D), fontSize = 13.sp)
                         Text("🙏 ${info.deity}  •  📿 ${info.mantra}", color = Color(0xFFFFC83D), fontSize = 13.sp)
+                        Text("संदर्भ: ${info.source}", color = Color(0xFFB9C4D0), fontSize = 11.sp)
                     }
                 }
             }
