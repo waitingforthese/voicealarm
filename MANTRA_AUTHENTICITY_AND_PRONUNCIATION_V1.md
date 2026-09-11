@@ -30,3 +30,10 @@
 
 ## Important distinction
 A mantra can be textually traditional while its audio realization varies by regional/recitation tradition. For Vedic mantra with svara, a trained traditional reciter and a licensed recording are preferred over generic TTS. The short daily-japa forms in this feature are not presented as Vedic-svara recitations.
+
+## Recorded audio references added in V14.2.2.6.3
+- Exact short-japa recordings were found as commercial tracks in the Navgraha Mantra Vol. 1 and Vol. 2 collections. The app opens these source recordings for reference; they are NOT bundled into the APK because the search results show ℗/© ownership and no redistribution licence.
+- Volume 1 contains: Surya, Chandra, Mangal, Budha, Brihaspati exact short-japa tracks.
+- Volume 2 contains: Shukra, Shani, Rahu, Ketu exact short-japa tracks.
+- Sadvidya Foundation also provides traditional pronunciation/chant recordings for all nine planets, but those are longer planetary stotras rather than the exact short-japa texts used by this app.
+- Until explicit redistribution permission is obtained, the app continues to use its canonical Devanagari TTS for actual Aaradhana playback and exposes the found recordings as external reference links.

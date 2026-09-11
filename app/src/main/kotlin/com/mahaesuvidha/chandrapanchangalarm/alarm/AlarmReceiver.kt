@@ -159,9 +159,7 @@ class AlarmReceiver : BroadcastReceiver() {
                                 .forEach { row ->
                                     // Announce the exact planet + Tara relationship once before
                                     // that planet's mantra. The announcement itself is not repeated.
-                                    taraAnnouncements.add(
-                                        "${row.planet.marathi} — ${row.tara} तारा नक्षत्रात आहे. ${row.planet.marathi} ची आराधना करा."
-                                    )
+                                    taraAnnouncements.add("${row.planet.marathi} — ${row.tara} तारा")
                                     mantraList.add(AaradhanaMaster.forPlanet(row.planet).mantra)
                                 }
                         }.onFailure {

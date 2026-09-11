@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
 import com.mahaesuvidha.chandrapanchangalarm.model.AaradhanaMaster
 import com.mahaesuvidha.chandrapanchangalarm.model.BirthProfile
 import com.mahaesuvidha.chandrapanchangalarm.model.Graha
@@ -93,6 +95,20 @@ fun PlanetaryTaraAaradhanaScreen(profile: BirthProfile, onBack: () -> Unit) {
                         if (row.nextWarningStartMillis > 0L) Text("पुढील ${"विपत / प्रत्यारी / वध"} सुरुवात: ${PlanetaryTaraAaradhanaCalculator.format(row.nextWarningStartMillis)}", color = Color(0xFFFFC83D), fontSize = 13.sp)
                         Text("🙏 ${info.deity}  •  📿 ${info.mantra}", color = Color(0xFFFFC83D), fontSize = 13.sp)
                         Text("संदर्भ: ${info.source}", color = Color(0xFFB9C4D0), fontSize = 11.sp)
+                        if (info.audioReferenceUrl.isNotBlank()) {
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.audioReferenceUrl)))
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("🎧 उच्चार / मंत्र recording reference उघडा", fontWeight = FontWeight.Bold)
+                            }
+                            Text(info.audioReferenceLabel, color = Color(0xFFB9C4D0), fontSize = 11.sp)
+                        }
                     }
                 }
             }

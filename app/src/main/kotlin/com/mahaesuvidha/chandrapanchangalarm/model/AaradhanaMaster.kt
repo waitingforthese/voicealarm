@@ -7,7 +7,10 @@ data class AaradhanaInfo(
     /** Scholarly/reference note for the selected daily-japa text. */
     val source: String = "पारंपरिक ग्रह-जप संदर्भ",
     /** Human-readable pronunciation guide; kept separate from Sanskrit display text. */
-    val pronunciation: String = ""
+    val pronunciation: String = "",
+    /** Exact-mantra recording reference when a matching public recording was found. */
+    val audioReferenceUrl: String = "",
+    val audioReferenceLabel: String = ""
 )
 
 object AaradhanaMaster {
@@ -93,16 +96,20 @@ object AaradhanaMaster {
      * from longer Vedic/tantric prayoga texts so the daily Tara Aaradhana remains
      * practical and the TTS pronunciation remains stable.
      */
-    fun forPlanet(graha: Graha): AaradhanaInfo = when (graha) {
-        Graha.SURYA -> AaradhanaInfo("सूर्य", "ॐ घृणि सूर्याय नमः", "सूर्य सामान्य/मूल मंत्र — Drik Panchang; Navagraha collections cross-check", "ॐ घृणि सूर्याय नमः")
-        Graha.CHANDRA -> AaradhanaInfo("चंद्र", "ॐ सोम सोमाय नमः", "चंद्र मूल मंत्र — Drik Panchang", "ॐ सोम सोमाय नमः")
-        Graha.MANGAL -> AaradhanaInfo("मंगळ", "ॐ अं अंगारकाय नमः", "मंगळ मूल मंत्र — Drik Panchang", "ॐ अं अंगारकाय नमः")
-        Graha.BUDH -> AaradhanaInfo("बुध", "ॐ बुं बुधाय नमः", "बुध मूल मंत्र — Drik Panchang", "ॐ बुं बुधाय नमः")
-        Graha.GURU -> AaradhanaInfo("गुरु", "ॐ बृं बृहस्पतये नमः", "बृहस्पति मूल मंत्र — पारंपरिक Brihaspati mantra reference; cross-checked with Navagraha sources", "ॐ बृं बृहस्पतये नमः")
-        Graha.SHUKRA -> AaradhanaInfo("शुक्र", "ॐ शुं शुक्राय नमः", "शुक्र मूल मंत्र — Drik Panchang", "ॐ शुं शुक्राय नमः")
-        Graha.SHANI -> AaradhanaInfo("शनि", "ॐ शं शनैश्चराय नमः", "शनि मूल मंत्र — Drik Panchang", "ॐ शं शनैश्चराय नमः")
-        Graha.RAHU -> AaradhanaInfo("राहू", "ॐ रां राहवे नमः", "राहु मूल मंत्र — Drik Panchang", "ॐ रां राहवे नमः")
-        Graha.KETU -> AaradhanaInfo("केतू", "ॐ कें केतवे नमः", "केतु मूल मंत्र — Drik Panchang", "ॐ कें केतवे नमः")
+    fun forPlanet(graha: Graha): AaradhanaInfo {
+        val volume1 = "https://music.amazon.in/tracks/B0BYNHHQL3"
+        val volume2 = "https://music.amazon.in/tracks/B0BYNLWVL3"
+        return when (graha) {
+            Graha.SURYA -> AaradhanaInfo("सूर्य", "ॐ घृणि सूर्याय नमः", "सूर्य सामान्य/मूल मंत्र — Drik Panchang; Navagraha collections cross-check", "ॐ घृणि सूर्याय नमः", volume1, "Exact mantra recording — Navgraha Mantra Vol. 1")
+            Graha.CHANDRA -> AaradhanaInfo("चंद्र", "ॐ सोम सोमाय नमः", "चंद्र मूल मंत्र — Drik Panchang", "ॐ सोम सोमाय नमः", volume1, "Exact mantra recording — Navgraha Mantra Vol. 1")
+            Graha.MANGAL -> AaradhanaInfo("मंगळ", "ॐ अं अंगारकाय नमः", "मंगळ मूल मंत्र — Drik Panchang", "ॐ अं अंगारकाय नमः", volume1, "Exact mantra recording — Navgraha Mantra Vol. 1")
+            Graha.BUDH -> AaradhanaInfo("बुध", "ॐ बुं बुधाय नमः", "बुध मूल मंत्र — Drik Panchang", "ॐ बुं बुधाय नमः", volume1, "Exact mantra recording — Navgraha Mantra Vol. 1")
+            Graha.GURU -> AaradhanaInfo("गुरु", "ॐ बृं बृहस्पतये नमः", "बृहस्पति मूल मंत्र — पारंपरिक Brihaspati mantra reference; cross-checked with Navagraha sources", "ॐ बृं बृहस्पतये नमः", volume1, "Exact mantra recording — Navgraha Mantra Vol. 1")
+            Graha.SHUKRA -> AaradhanaInfo("शुक्र", "ॐ शुं शुक्राय नमः", "शुक्र मूल मंत्र — Drik Panchang", "ॐ शुं शुक्राय नमः", volume2, "Exact mantra recording — Navgraha Mantra Vol. 2")
+            Graha.SHANI -> AaradhanaInfo("शनि", "ॐ शं शनैश्चराय नमः", "शनि मूल मंत्र — Drik Panchang", "ॐ शं शनैश्चराय नमः", volume2, "Exact mantra recording — Navgraha Mantra Vol. 2")
+            Graha.RAHU -> AaradhanaInfo("राहू", "ॐ रां राहवे नमः", "राहु मूल मंत्र — Drik Panchang", "ॐ रां राहवे नमः", volume2, "Exact mantra recording — Navgraha Mantra Vol. 2")
+            Graha.KETU -> AaradhanaInfo("केतू", "ॐ कें केतवे नमः", "केतु मूल मंत्र — Drik Panchang", "ॐ कें केतवे नमः", volume2, "Exact mantra recording — Navgraha Mantra Vol. 2")
+        }
     }
 
     fun forNakshatra(name: String): AaradhanaInfo = nakshatra[name] ?: AaradhanaInfo("ईश्वर", "ॐ नमः शिवाय")

@@ -194,16 +194,31 @@ fun AaradhanaScreen(
 
                     // Immediately play the currently active Aaradhana so the user can
                     // verify count, pronunciation and speech speed without waiting for an alarm.
-                    val previewMantras = listOf(
+                    val previewMantras = mutableListOf(
                         nakInfo.mantra,
                         yogaInfo.mantra,
                         karanaInfo.mantra
-                    ).filter { it.isNotBlank() }
-                    AaradhanaVoiceSession.speakPreview(
+                    ).filter { it.isNotBlank() }.toMutableList()
+                    val previewAnnouncements = mutableListOf<String>()
+                    val previewProfile = com.mahaesuvidha.chandrapanchangalarm.model.BirthProfileStore.load(context.applicationContext)
+                    if (prefs.planetaryTaraAaradhana && previewProfile?.birthNakshatra?.isNotBlank() == true) {
+                        runCatching {
+                            com.mahaesuvidha.chandrapanchangalarm.model.PlanetaryTaraAaradhanaCalculator
+                                .calculate(previewProfile.birthNakshatra)
+                                .filter { row -> row.isWarning && prefs.isPlanetaryTaraEnabled(row.planet.name) }
+                                .forEach { row ->
+                                    previewAnnouncements.add("${row.planet.marathi} — ${row.tara} तारा")
+                                    previewMantras.add(AaradhanaMaster.forPlanet(row.planet).mantra)
+                                }
+                        }
+                    }
+                    AaradhanaVoiceSession.speakAnnouncementAndSequence(
                         context.applicationContext,
                         399,
-                        previewMantras,
-                        count
+                        previewAnnouncements,
+                        previewMantras.distinct(),
+                        count,
+                        null
                     )
                     savedPopup = true
                 }, modifier = Modifier.fillMaxWidth()) {
@@ -212,7 +227,7 @@ fun AaradhanaScreen(
 
                 Spacer(Modifier.height(6.dp))
                 Text("ON असल्यास: नक्षत्र मंत्र → योग मंत्र → करण मंत्र • प्रत्येक मंत्रासाठी निवडलेली जप संख्या. आराधना रोजच्या fixed clock वेळेला होईल.", color = Color.LightGray, fontSize = 12.sp)
-                Text("या विशेष आराधनेत कोणतीही घोषणा केली जाणार नाही.", color = Color.LightGray, fontSize = 12.sp)
+                Text("ग्रह तारा आराधना सक्रिय असल्यास: ग्रह — विपत / प्रत्यारी / वध तारा घोषणा → त्या ग्रहाचा मंत्र → जप.", color = Color.LightGray, fontSize = 12.sp)
             }
         }
         Spacer(Modifier.height(10.dp))
