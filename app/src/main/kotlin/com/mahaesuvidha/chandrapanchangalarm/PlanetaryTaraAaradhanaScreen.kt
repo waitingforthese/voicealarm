@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mahaesuvidha.chandrapanchangalarm.model.AaradhanaMaster
 import com.mahaesuvidha.chandrapanchangalarm.model.BirthProfile
+import com.mahaesuvidha.chandrapanchangalarm.model.Graha
 import com.mahaesuvidha.chandrapanchangalarm.model.PlanetaryTaraAaradhanaCalculator
 import com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs
 import com.mahaesuvidha.chandrapanchangalarm.alarm.AlarmScheduler
@@ -25,8 +27,12 @@ fun PlanetaryTaraAaradhanaScreen(profile: BirthProfile, onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { AaradhanaPrefs(context.applicationContext) }
     var enabled by remember { mutableStateOf(prefs.planetaryTaraAaradhana) }
-    var refresh by remember { mutableStateOf(0) }
-    val rows = remember(profile.birthNakshatra, refresh) {
+    val scope = rememberCoroutineScope()
+    val planetSwitches = remember { mutableStateMapOf<String, Boolean>() }
+    LaunchedEffect(profile.birthNakshatra) {
+        Graha.entries.forEach { g -> planetSwitches[g.name] = prefs.isPlanetaryTaraEnabled(g.name) }
+    }
+    val rows = remember(profile.birthNakshatra) {
         PlanetaryTaraAaradhanaCalculator.calculate(profile.birthNakshatra)
     }
     val warningRows = rows.filter { it.isWarning }
@@ -54,23 +60,29 @@ fun PlanetaryTaraAaradhanaScreen(profile: BirthProfile, onBack: () -> Unit) {
                         Switch(checked = enabled, onCheckedChange = {
                             enabled = it
                             prefs.planetaryTaraAaradhana = it
-                            AlarmScheduler(context.applicationContext).scheduleAll()
+                            scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                AlarmScheduler(context.applicationContext).scheduleAll()
+                            }
                         })
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
             rows.forEach { row ->
-                val planetEnabled = prefs.isPlanetaryTaraEnabled(row.planet.name)
+                val planetEnabled = planetSwitches[row.planet.name] ?: prefs.isPlanetaryTaraEnabled(row.planet.name)
                 val info = AaradhanaMaster.forPlanet(row.planet)
                 Card(Modifier.fillMaxWidth().padding(bottom = 8.dp), colors = CardDefaults.cardColors(containerColor = if (row.isWarning) Color(0xFF2A1E12) else Color(0xFF10253A))) {
                     Column(Modifier.padding(12.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("${row.planet.marathi}  •  ${String.format(java.util.Locale.US, "%.2f°", row.degreeInRashi)}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.weight(1f))
-                            Switch(checked = planetEnabled, enabled = enabled, onCheckedChange = {
-                                prefs.setPlanetaryTaraEnabled(row.planet.name, it)
-                                AlarmScheduler(context.applicationContext).scheduleAll()
-                                refresh++
+                            Switch(checked = planetEnabled, enabled = enabled, onCheckedChange = { checked ->
+                                // Keep this screen mounted: update Compose state first,
+                                // persist the value, then reconcile alarms asynchronously.
+                                planetSwitches[row.planet.name] = checked
+                                prefs.setPlanetaryTaraEnabled(row.planet.name, checked)
+                                scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                    AlarmScheduler(context.applicationContext).scheduleAll()
+                                }
                             })
                         }
                         Text("गोचर राशी: ${row.rashi}", color = Color.LightGray)

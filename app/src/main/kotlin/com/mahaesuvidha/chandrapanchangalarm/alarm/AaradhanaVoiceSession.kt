@@ -57,9 +57,30 @@ object AaradhanaVoiceSession {
         eachCount: Int
     ) = start(context, id, mantras, eachCount, null, null)
 
+    /** Announces special context once, then performs the supplied mantra sequence. */
+    fun speakAnnouncementAndSequence(
+        context: Context,
+        id: Int,
+        announcements: List<String>,
+        mantras: List<String>,
+        eachCount: Int,
+        result: android.content.BroadcastReceiver.PendingResult?,
+        onFinished: (() -> Unit)? = null
+    ) = startWithAnnouncements(context, id, announcements, mantras, eachCount, result, onFinished)
+
     private fun start(
         context: Context,
         id: Int,
+        mantras: List<String>,
+        eachCount: Int,
+        result: android.content.BroadcastReceiver.PendingResult?,
+        onFinished: (() -> Unit)?
+    ) = startWithAnnouncements(context, id, emptyList(), mantras, eachCount, result, onFinished)
+
+    private fun startWithAnnouncements(
+        context: Context,
+        id: Int,
+        announcements: List<String>,
         mantras: List<String>,
         eachCount: Int,
         result: android.content.BroadcastReceiver.PendingResult?,
@@ -91,9 +112,13 @@ object AaradhanaVoiceSession {
             engine.setSpeechRate(AaradhanaPrefs(app).speechRate)
             engine.setPitch(1.00f)
 
-            val utterances = mantras
+            val announcementUtterances = announcements
+                .filter { it.isNotBlank() }
+                .map(::pronounce)
+            val mantraUtterances = mantras
                 .filter { it.isNotBlank() }
                 .flatMap { mantraText -> List(eachCount.coerceAtLeast(1)) { pronounce(mantraText) } }
+            val utterances = announcementUtterances + mantraUtterances
 
             if (utterances.isEmpty()) {
                 stop(id)

@@ -136,11 +136,43 @@ class AlarmReceiver : BroadcastReceiver() {
                 try {
                     val p = LivePanchangCalculator.getCurrentPanchangState(LocationPrefs(appContext).latitude, LocationPrefs(appContext).longitude)
                     val moon = LiveMoonCalculator.getCurrentMoonState()
-                    AaradhanaVoiceSession.speakSequence(appContext, id, listOf(
+                    val aarPrefs = com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext)
+                    val mantraList = mutableListOf(
                         AaradhanaMaster.forNakshatra(moon.nakshatra.marathi).mantra,
                         AaradhanaMaster.forYoga(p.yoga).mantra,
                         AaradhanaMaster.forKarana(p.karana).mantra
-                    ), com.mahaesuvidha.chandrapanchangalarm.settings.AaradhanaPrefs(appContext).specialJapaCount, pendingResult) {
+                    )
+                    val taraAnnouncements = mutableListOf<String>()
+
+                    // While a transit planet remains in Vipat / Pratyari / Vadha,
+                    // include that planet's Aaradhana in every scheduled Nakshatra
+                    // Aaradhana session. This is intentionally independent of the
+                    // normal notification switches; only the planetary Tara master
+                    // and that planet's own switch control inclusion.
+                    val profile = BirthProfileStore.load(appContext)
+                    if (aarPrefs.planetaryTaraAaradhana && profile?.birthNakshatra?.isNotBlank() == true) {
+                        runCatching {
+                            PlanetaryTaraAaradhanaCalculator.calculate(profile.birthNakshatra)
+                                .filter { row ->
+                                    row.isWarning && aarPrefs.isPlanetaryTaraEnabled(row.planet.name)
+                                }
+                                .forEach { row ->
+                                    // Announce the exact planet + Tara relationship once before
+                                    // that planet's mantra. The announcement itself is not repeated.
+                                    taraAnnouncements.add(
+                                        "${row.planet.marathi} — ${row.tara} तारा नक्षत्रात आहे. ${row.planet.marathi} ची आराधना करा."
+                                    )
+                                    mantraList.add(AaradhanaMaster.forPlanet(row.planet).mantra)
+                                }
+                        }.onFailure {
+                            android.util.Log.e("LifeAlarm", "Planetary Tara Aaradhana merge failed", it)
+                        }
+                    }
+
+                    AaradhanaVoiceSession.speakAnnouncementAndSequence(
+                        appContext, id, taraAnnouncements, mantraList.distinct(),
+                        aarPrefs.specialJapaCount, pendingResult
+                    ) {
                         // The current 301 event has already been consumed. Reconcile
                         // immediately so the next interval is anchored to the saved
                         // schedule rather than to every incidental scheduleAll() call.
